@@ -1,117 +1,118 @@
 # DISC2 · ระบบสำนวนวินัย
 
-นักพัฒนาเปิด DISC2 ใน VS Code บนเครื่องของตนเอง ใช้ Codex ด้วยบัญชีของตน และรันระบบด้วย PHP 8.5 กับ SQLite จากฐานข้อมูลสมมติของแต่ละสำเนา
+Repository ของทีมคือ [bmadevgit/disc2 บน GitHub](https://github.com/bmadevgit/disc2) แบบ private ผู้พัฒนาใช้บัญชี GitHub ของตนเอง และทำงานบนเครื่องของตนด้วย VS Code, Codex, PHP และข้อมูลสมมติ
 
-คู่มือ PDF สำหรับนักพัฒนาและผู้ดูแลอยู่ที่ [คู่มือพัฒนา DISC2 ร่วมกัน](docs/DISC2-Git-Codex.pdf)
+- [คู่มือ PDF พร้อมแผนภาพ](docs/DISC2-Git-Codex.pdf)
+- [คู่มือผู้ดูแล GitHub และออกรุ่น](MAINTAINERS.md)
 
-## แผนภาพการทำงาน
+## ภาพรวมการทำงาน
 
 ```mermaid
 flowchart TD
-    A["ผู้ดูแลส่ง DISC2 รุ่นล่าสุด"] --> B["นักพัฒนา clone แล้วเปิดใน VS Code"]
-    B --> C["สร้าง branch สำหรับงานของตน"]
-    C --> D["ใช้ Codex ช่วยแก้และทดสอบด้วยข้อมูลสมมติ"]
-    D --> E["สร้าง commit แล้วส่ง Git bundle ของงาน"]
-    E --> F{"ผู้ดูแลตรวจโค้ดและผลทดสอบ"}
+    A["ผู้ดูแลเชิญบัญชี GitHub เข้า bmadevgit/disc2"] --> B["นักพัฒนากด Accept และ clone"]
+    B --> C["เปิด dev/disc2 ใน VS Code แล้วสร้าง branch"]
+    C --> D["ใช้ Codex ช่วยแก้และทดสอบด้วยฐานสมมติ"]
+    D --> E["commit และ push branch ขึ้น GitHub"]
+    E --> F{"เปิด Pull Request เข้า main และรอรีวิว"}
     F -->|"ขอแก้เพิ่ม"| D
     F -->|"ผ่าน"| G["ผู้ดูแลรวมเข้า main"]
-    G --> H["ผู้ดูแลส่ง bundle รุ่นล่าสุดให้ทีม"]
-    G --> I["ผู้ดูแลนำขึ้นเว็บเมื่อพร้อมออกรุ่น"]
+    G --> H["ทีมดึง main ล่าสุดก่อนเริ่มงานถัดไป"]
+    G --> I["ผู้ดูแลเลือกเวอร์ชันและนำขึ้น Server-A"]
 ```
 
-**อ่านแผนภาพเป็นข้อความ** · รับโค้ด → สร้างสำเนาบนเครื่อง → แยกงานเป็น branch → แก้และทดลอง → ส่งผู้ดูแล → รวมเข้า `main` → รับรุ่นล่าสุดก่อนเริ่มงานรอบใหม่
+อ่านแผนภาพเป็นข้อความ · รับคำเชิญ → clone → เปิดโฟลเดอร์ → สร้าง branch → แก้และทดสอบ → ส่ง Pull Request → ผู้ดูแลรีวิวและรวม
 
-| คำที่เจอ | ความหมายใน DISC2 |
+| ตำแหน่ง | ใช้ทำอะไร |
 |---|---|
-| Clone | คัดลอกโค้ดและประวัติลงเครื่องของเรา |
-| Branch | พื้นที่ทำงานของงานหนึ่ง เช่น แก้ตัวกรอง |
-| Commit | บันทึกชุดการแก้ไขพร้อมชื่อผู้เขียนและคำอธิบาย |
-| Git bundle | ไฟล์ส่งโค้ดพร้อมประวัติ Git ทางช่องทางภายในของทีม |
-| `main` | สาขาหลักที่ผู้ดูแลรวมงานที่ตรวจแล้ว |
-| Pull Request | คำขอให้ตรวจและรวมงานเมื่อทีมใช้ Git กลาง |
+| HTTPS clone URL | `https://github.com/bmadevgit/disc2.git` |
+| โฟลเดอร์ที่นักพัฒนาเปิดใน VS Code | `%USERPROFILE%\dev\disc2` เช่น `C:\Users\Nok\dev\disc2` |
+| ฐานทดสอบและบัญชีสมมติในโฟลเดอร์นั้น | `runtime/disc2-dev.sqlite` และ `runtime/demo-accounts.json` |
+| เว็บทดสอบบนเครื่อง | `http://127.0.0.1:8760/` |
+| ตำแหน่งเว็บที่ผู้ดูแลออกรุ่นบน Server-A | `C:\inetpub\wwwroot\exam\disc2` |
 
-## เริ่มงานบนเครื่อง Windows
+## 1. รับสิทธิ์และเตรียมเครื่อง
 
-1. ติดตั้ง Git, VS Code และ PHP 8.5 ให้เทอร์มินัลเรียก `git` และ `php` ได้ เปิด PHP extension `pdo_sqlite` และ `curl` ใน `php.ini` ของเครื่อง
-2. เลือกโฟลเดอร์ทำงาน เช่น `C:\Users\<ชื่อผู้ใช้>\dev` วาง `disc2.bundle` ในโฟลเดอร์นั้น แล้วเปิด PowerShell
+1. แจ้ง GitHub username ให้ผู้ดูแล กด **Accept invitation** ด้วยบัญชีที่ถูกเชิญ แล้วเปิด [หน้ารายการไฟล์ของ DISC2](https://github.com/bmadevgit/disc2) ให้เห็น README
+2. ติดตั้ง [Git for Windows](https://gitforwindows.org/) พร้อม Git Credential Manager, [VS Code](https://code.visualstudio.com/) และ PHP 8.5 สำหรับ Windows ให้ `php.exe` อยู่ใน PATH ใช้ `php --ini` ดูว่า PHP อ่าน `php.ini` ไฟล์ใด แล้วเปิด `extension=pdo_sqlite` และ `extension=curl` ตามคู่มือ PHP [การติดตั้ง PHP บน Windows](https://www.php.net/manual/en/install.windows.php)
+3. เปิด PowerShell ใหม่ ตรวจว่า `git --version` และ `php -v` ใช้งานได้ ถ้า Git เปิดหน้าล็อกอินระหว่าง clone หรือ push ให้เลือกบัญชี GitHub ที่กดรับคำเชิญ [การลงชื่อเข้า GitHub ด้วย Git Credential Manager](https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git)
 
-   ```powershell
-   git clone .\disc2.bundle disc2
-   Set-Location disc2
-   code .
-   ```
+## 2. Clone และเปิดโฟลเดอร์ที่ถูกต้อง
 
-   เมื่อทีมมี URL ของ Git กลาง ให้ใช้ `git clone <Git-URL> disc2` แทนคำสั่ง clone จากไฟล์
-3. ในเทอร์มินัลของ VS Code ตรวจ PHP แล้วสร้างฐานสมมติครั้งแรก
-
-   ```powershell
-   php -v
-   php --ri pdo_sqlite
-   php tools/init.php
-   ```
-
-4. เปิด `runtime/demo-accounts.json` เพื่อดูรหัสผ่านที่สร้างให้ `demo-admin`, `demo-owner` และ `demo-reader` เจ้าของสำนวนและหัวหน้ากลุ่มเห็นสำนวน `DEMO-001` หัวหน้ากลุ่มมีสิทธิ์อ่าน
-5. เปิดเว็บไซต์ทดสอบ แล้วเข้า `http://127.0.0.1:8760/` จากเบราว์เซอร์บนเครื่อง กด Ctrl+C ในเทอร์มินัลเพื่อหยุดเซิร์ฟเวอร์
-
-   ```powershell
-   powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
-   ```
-
-   หากพอร์ตถูกใช้อยู่ ให้เลือกพอร์ตว่างและใช้หมายเลขนั้นในเบราว์เซอร์
-6. เมื่อต้องลง migrations ใหม่กับฐานทดสอบเดิม ให้รันจากโฟลเดอร์โครงการ
-
-   ```powershell
-   $env:DISC2_DEV = '1'
-   try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
-   ```
-
-## ตั้งชื่อผู้เขียน commit ครั้งแรก
-
-เปิดเทอร์มินัลในโฟลเดอร์ `disc2` แล้วระบุชื่อและอีเมลของตัวเอง ค่านี้ใช้กับสำเนา DISC2 ที่เปิดอยู่
+ที่ GitHub กด **Code → HTTPS** แล้ว copy URL หรือรันคำสั่งข้างล่างใน PowerShell
 
 ```powershell
-git config user.name "ชื่อของคุณ"
-git config user.email "อีเมลของคุณ"
+$dev = Join-Path $env:USERPROFILE 'dev'
+New-Item -ItemType Directory -Force -Path $dev | Out-Null
+Set-Location $dev
+git clone https://github.com/bmadevgit/disc2.git disc2
+Set-Location .\disc2
+git remote get-url origin
+code .
 ```
 
-วิธีส่งงานด้วย Git bundle ใช้การส่งไฟล์ผ่านช่องทางภายใน ผู้ดูแลส่งชุดเริ่มต้นให้ผู้พัฒนาที่ได้รับมอบหมาย ส่วน Codex ให้ลงชื่อเข้าใช้ด้วยบัญชี ChatGPT ของตน
+ผลของ `git remote get-url origin` ควรเป็น `https://github.com/bmadevgit/disc2.git` หากคำสั่ง `code .` ยังใช้ไม่ได้ เปิด VS Code แล้วเลือก **File → Open Folder** ไปที่ `%USERPROFILE%\dev\disc2` โฟลเดอร์ที่ถูกต้องมี `README.md`, `AGENTS.md`, `index.php` และโฟลเดอร์ `tools` [คู่มือ clone ของ GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
 
-## ใช้ Codex ใน VS Code
+## 3. ตั้งชื่อ commit เปิดเว็บ และใช้ Codex
 
-ติดตั้งส่วนขยาย **Codex** จากหน้า Extensions ลงชื่อเข้าใช้ด้วยบัญชีของตน และเปิดโฟลเดอร์ `disc2` ใน VS Code ไฟล์ `AGENTS.md` มีคำสั่งเริ่มงานและกติกาของระบบ ทดลองสั่งว่า “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับอย่างไร พร้อมทดสอบด้วยข้อมูลสมมติ” [คู่มือ Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide)
+เปิด **Terminal → New Terminal** ใน VS Code จากราก `disc2`
 
-## ส่งงานกลับให้ทีม
+```powershell
+Get-Location
+git config user.name "ชื่อของคุณ"
+git config user.email "อีเมล GitHub ของคุณ"
+php --ri pdo_sqlite
+php --ri curl
+php tools/init.php
+powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
+```
 
-อัปเดต `main` จากแหล่งที่ clone มาก่อนสร้าง branch ใหม่ เมื่อรับ `disc2.bundle` รุ่นล่าสุด ให้วางไฟล์ไว้ที่ตำแหน่งที่ใช้ clone ครั้งแรก
+- ชื่อและอีเมล Git ระบุผู้เขียน commit ใช้อีเมลที่ผูกกับ GitHub หรืออีเมล `noreply` ของบัญชีตน ส่วนการ clone หรือ push ใช้สิทธิ์บัญชี GitHub ที่ผู้ดูแลเชิญ
+- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` แล้วลองเข้าเว็บที่ `http://127.0.0.1:8760/` ด้วย `demo-owner` จะเห็นสำนวน `DEMO-001`
+- ติดตั้ง **Codex** จากหน้า Extensions แล้วลงชื่อด้วยบัญชี ChatGPT ของตน ลองสั่ง “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับอย่างไร พร้อมทดสอบด้วยข้อมูลสมมติ” [คู่มือ Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide)
+- ถ้าพอร์ต 8760 ถูกใช้ เปลี่ยนพอร์ตในคำสั่งแล้วเปิด URL ด้วยหมายเลขเดียวกัน กด Ctrl+C เพื่อหยุดเว็บ เมื่อต้องปรับฐานทดสอบที่มีอยู่ด้วย migrations ใหม่ ให้รันจากรากโครงการดังนี้
+
+```powershell
+$env:DISC2_DEV = '1'
+try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
+```
+
+## 4. ส่งงานผ่าน Pull Request
+
+เริ่มจาก `main` รุ่นล่าสุด แล้วตั้ง branch ให้สื่อถึงงาน ตัวอย่างนี้ใช้ `feature/case-filter`
 
 ```powershell
 git switch main
 git pull --ff-only origin main
 git switch -c feature/case-filter
-# แก้โค้ดและทดสอบในสำเนาของตน
-git diff
-git add <ไฟล์ที่แก้>
-git commit -m "ปรับตัวกรองสำนวน"
 ```
 
-- **เมื่อใช้ไฟล์ Git bundle** ให้รันคำสั่งด้านล่าง แล้วส่งไฟล์ `case-filter.bundle` พร้อมวิธีและผลทดสอบผ่านช่องทางภายในของทีม ผู้ดูแลจะนำเข้า branch และรีวิวก่อนรวมงาน
+แก้และทดสอบบนเครื่อง ตรวจงานก่อน commit แล้วใช้ `git add` กับไฟล์ที่เปลี่ยนจริง
 
-  ```powershell
-  git bundle create ..\case-filter.bundle main..feature/case-filter
-  ```
+```powershell
+git status --short
+git diff
+git add -- index.php
+git diff --cached
+git commit -m "ปรับตัวกรองสำนวน"
+git push -u origin feature/case-filter
+```
 
-- **เมื่อมี Git กลาง** ให้รัน `git push -u origin feature/case-filter` แล้วเปิด Pull Request เข้า `main` ระบุวิธีและผลทดสอบ
+บรรทัด `git add -- index.php` เป็นตัวอย่าง ให้แทนชื่อไฟล์ตามงาน จากนั้นเปิด GitHub กด **Compare & pull request** หรือ **Pull requests → New pull request** เลือก **base** เป็น `main` และ **compare** เป็น `feature/case-filter` ระบุสิ่งที่แก้และวิธีทดสอบ แล้วกด **Create pull request** ผู้ดูแลเป็นคนรวมงาน เมื่อมีขอแก้เพิ่ม ให้ commit แล้ว push จาก branch เดิมเพื่ออัปเดต PR เดิม เมื่อรวมเสร็จ ให้ดึง `main` ล่าสุดก่อนเริ่มงานถัดไป
 
-ก่อนส่งงาน ตรวจ `git status` และ `git diff main...HEAD` ให้แน่ใจว่าชุดงานมีเฉพาะไฟล์ที่เกี่ยวข้อง ใช้ข้อมูลสมมติในภาพหน้าจอและคำสั่งที่ส่งให้ AI
+## เคยเริ่มด้วย Git bundle อยู่แล้ว
 
-## ผู้ดูแลต้องอนุมัติอะไรบ้าง
+เปิดโฟลเดอร์ DISC2 ที่มีงานเดิม ตรวจ `git status` และ `git remote -v` ให้แน่ใจว่าเป็นสำเนาของ DISC2 แล้วเปลี่ยนเฉพาะปลายทาง `origin` การเปลี่ยน URL รักษา branch และไฟล์งานเดิมไว้
 
-| เรื่อง | สิ่งที่ผู้ดูแลทำ |
-|---|---|
-| เริ่มงานด้วย Git bundle | ส่งไฟล์ให้ผู้ได้รับมอบหมาย การตั้งชื่อและอีเมล Git ทำเองได้ |
-| สิทธิ์ใช้ Codex | ผู้พัฒนาใช้บัญชี ChatGPT ของตน หากองค์กรจัดการ Workspace ให้ผู้ดูแล Workspace ตรวจสิทธิ์ Codex |
-| รวมเข้า `main` | ตรวจโค้ดและผลทดสอบก่อนรวม หากต้องแก้เพิ่ม ให้ส่งกลับไปแก้ใน branch งาน |
-| Git กลางแบบ private เมื่อเปิดใช้ | เชิญบัญชี Git รายคน ให้สิทธิ์ส่ง branch และตั้ง `main` ให้รวมผ่าน Pull Request |
-| นำขึ้นเว็บ | เลือกรุ่น สำรองโค้ดและฐานข้อมูล แล้วตรวจระบบหลังออกรุ่น |
+```powershell
+git remote set-url origin https://github.com/bmadevgit/disc2.git
+git fetch origin
+git remote get-url origin
+```
 
-อ่านคำสั่งและรายละเอียดการรับงาน ตั้งสิทธิ์ และออกรุ่นใน [คู่มือผู้ดูแล Git](MAINTAINERS.md)
+ถ้าพบว่าโฟลเดอร์ `disc2` มีอยู่แล้ว ให้ใช้โฟลเดอร์เดิมตามขั้นตอนนี้ หรือ clone ลงโฟลเดอร์ชื่อใหม่ ถ้า GitHub แสดง **404** หรือ **Repository not found** ให้ตรวจว่าเข้าด้วยบัญชีที่ได้รับเชิญและกดรับแล้ว
+
+### ไฟล์อ้างอิงของ DISC2
+
+- `AGENTS.md` บริบทให้ Codex · `index.php` หน้ารายการ · `case.php` หน้าสำนวน
+- `workflow.php` และ `workflow.js` กติกาคำนวณวัน · `migrations/` ไฟล์ปรับโครงสร้างฐาน
+- ใช้ข้อมูลสมมติในเครื่องและภาพทดสอบ เก็บฐานสำนวนจริงและค่าลับไว้ในพื้นที่ของผู้ดูแลนอก Git
