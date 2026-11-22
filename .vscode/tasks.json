@@ -20,7 +20,7 @@
     {
       "id": "disc2Port",
       "type": "promptString",
-      "description": "Loopback port assigned to your DISC2 preview",
+      "description": "Local port for your DISC2 preview",
       "default": "8760"
     }
   ]

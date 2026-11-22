@@ -1,22 +1,20 @@
 # DISC2 · ระบบสำนวนวินัย
 
-PHP 8.5 และ SQLite สำหรับงานพัฒนาและทดสอบ DISC2 คู่มือนี้ใช้ได้ทั้งใน VS Code บนเครื่องและในหน้าต่าง VS Code Remote-SSH
+นักพัฒนาเปิด DISC2 ใน VS Code บนเครื่องของตนเอง ใช้ Codex ด้วยบัญชีของตน และรันระบบด้วย PHP 8.5 กับ SQLite จากฐานข้อมูลสมมติของแต่ละสำเนา
 
-## เริ่มงานจาก Dev VM
+## เริ่มงานบนเครื่อง Windows
 
-1. ต่อ LAN หรือ VPN องค์กร แล้วเลือก **Remote-SSH: Connect to Host…** ใน VS Code เข้าด้วยบัญชี Windows รายคน
-2. ใช้ URL **SSH clone** จาก Git กลาง เปิดเทอร์มินัลในหน้าต่าง Remote และ clone ในโฟลเดอร์ส่วนตัว
+1. ติดตั้ง Git, VS Code และ PHP 8.5 ให้เทอร์มินัลเรียก `git` และ `php` ได้ เปิด PHP extension `pdo_sqlite` และ `curl` ใน `php.ini` ของเครื่อง
+2. เลือกโฟลเดอร์ทำงาน เช่น `C:\Users\<ชื่อผู้ใช้>\dev` วาง `disc2.bundle` ในโฟลเดอร์นั้น แล้วเปิด PowerShell
 
    ```powershell
-   Set-Location $env:USERPROFILE
-   New-Item -ItemType Directory -Force dev | Out-Null
-   Set-Location dev
-   git clone <SSH-clone-URL>
+   git clone .\disc2.bundle disc2
    Set-Location disc2
+   code .
    ```
 
-   เลือก **File → Open Folder** เปิดโฟลเดอร์ `dev\disc2` นี้
-3. ในเทอร์มินัล PowerShell ทดสอบ PHP แล้วสร้างฐานสมมติครั้งแรก
+   เมื่อทีมมี URL ของ Git กลาง ให้ใช้ `git clone <Git-URL> disc2` แทนคำสั่ง clone จากไฟล์
+3. ในเทอร์มินัลของ VS Code ตรวจ PHP แล้วสร้างฐานสมมติครั้งแรก
 
    ```powershell
    php -v
@@ -24,45 +22,47 @@ PHP 8.5 และ SQLite สำหรับงานพัฒนาและท�
    php tools/init.php
    ```
 
-4. เปิด `runtime/demo-accounts.json` เพื่อดูรหัสผ่านที่สร้างให้ `demo-admin`, `demo-owner` และ `demo-reader` บัญชีเจ้าของและหัวหน้ากลุ่มเห็นสำนวน `DEMO-001` ส่วนหัวหน้ากลุ่มมีสิทธิ์อ่าน
-5. ใช้หมายเลขพอร์ตที่ผู้ดูแล VM จัดให้ เช่น 8760 แล้วเปิดเว็บทดสอบ
+4. เปิด `runtime/demo-accounts.json` เพื่อดูรหัสผ่านที่สร้างให้ `demo-admin`, `demo-owner` และ `demo-reader` เจ้าของสำนวนและหัวหน้ากลุ่มเห็นสำนวน `DEMO-001` หัวหน้ากลุ่มมีสิทธิ์อ่าน
+5. เปิดเว็บไซต์ทดสอบ แล้วเข้า `http://127.0.0.1:8760/` จากเบราว์เซอร์บนเครื่อง กด Ctrl+C ในเทอร์มินัลเพื่อหยุดเซิร์ฟเวอร์
 
    ```powershell
    powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
    ```
 
-   ที่แถบ **Ports** ใน VS Code เลือก **Forward a Port** แล้วเปิด URL ที่ระบบแสดงในเบราว์เซอร์ PHP รับการเชื่อมต่อที่ loopback ของ VM และฐานทดสอบอยู่ในโฟลเดอร์ `runtime` ของสำเนานี้ กด Ctrl+C ในเทอร์มินัลเพื่อหยุดเซิร์ฟเวอร์
-6. หากต้องใช้ migrations ใหม่กับฐานทดสอบเดิม ใช้คำสั่งนี้ใน PowerShell ภายในสำเนา Dev
+   หากพอร์ตถูกใช้อยู่ ให้เลือกพอร์ตว่างและใช้หมายเลขนั้นในเบราว์เซอร์
+6. เมื่อต้องลง migrations ใหม่กับฐานทดสอบเดิม ให้รันจากโฟลเดอร์โครงการ
 
    ```powershell
    $env:DISC2_DEV = '1'
    try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
    ```
 
-## ใช้ Codex ช่วยพัฒนา
+## ใช้ Codex ใน VS Code
 
-ที่ **Extensions** ตรวจว่ามี Codex ในหน้าต่าง Remote ถ้า VS Code แสดง **Install in SSH** ให้เลือกตามนั้น เปิด Codex และลงชื่อเข้าใช้ด้วยบัญชีที่ได้รับสิทธิ์ของตนเอง `AGENTS.md` อธิบายวิธีรันทดสอบและกติกาของโครงการ ใช้โค้ดและสำนวนสมมติในการสนทนากับ AI
+ติดตั้งส่วนขยาย **Codex** จากหน้า Extensions ลงชื่อเข้าใช้ด้วยบัญชีของตน และเปิดโฟลเดอร์ `disc2` ใน VS Code ไฟล์ `AGENTS.md` มีคำสั่งเริ่มงานและกติกาของระบบ ทดลองสั่งว่า “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับอย่างไร พร้อมทดสอบด้วยข้อมูลสมมติ” [คู่มือ Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide)
 
-งานแรกที่ใช้ทดสอบได้คือ “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับที่ไหน พร้อมทดสอบด้วยข้อมูลสมมติ” ตรวจว่าไฟล์และเทอร์มินัลอยู่ภายในสำเนาของตน [Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide) · [VS Code Remote-SSH](https://code.visualstudio.com/docs/remote/ssh)
+## ส่งงานกลับให้ทีม
 
-## ส่งงานให้ทีม
+อัปเดต `main` จากแหล่งที่ clone มาก่อนสร้าง branch ใหม่ เมื่อรับ `disc2.bundle` รุ่นล่าสุด ให้วางไฟล์ไว้ที่ตำแหน่งที่ใช้ clone ครั้งแรก
 
 ```powershell
 git switch main
-git pull --ff-only
+git pull --ff-only origin main
 git switch -c feature/case-filter
-# แก้และตรวจงานในสำเนาของตน
+# แก้โค้ดและทดสอบในสำเนาของตน
 git diff
 git add <ไฟล์ที่แก้>
 git commit -m "ปรับตัวกรองสำนวน"
-git push -u origin feature/case-filter
 ```
 
-เปิด Pull Request เข้า `main` ระบุวิธีทดสอบและผลที่เห็น ใช้สำนวนสมมติหากแนบภาพหน้าจอ ผู้ดูแลทบทวนและรวมงาน ใน PowerShell ที่รากโครงการ ตรวจไวยากรณ์ PHP ได้ดังนี้
+- **เมื่อใช้ไฟล์ Git bundle** ให้รันคำสั่งด้านล่าง แล้วส่งไฟล์ `case-filter.bundle` พร้อมวิธีและผลทดสอบผ่านช่องทางภายในของทีม ผู้ดูแลจะนำเข้า branch และรีวิวก่อนรวมงาน
 
-```powershell
-Get-ChildItem -Recurse -Filter *.php -File | ForEach-Object {
-    php -l $_.FullName
-    if ($LASTEXITCODE -ne 0) { throw "Syntax check failed for $($_.Name)" }
-}
-```
+  ```powershell
+  git bundle create ..\case-filter.bundle main..feature/case-filter
+  ```
+
+- **เมื่อมี Git กลาง** ให้รัน `git push -u origin feature/case-filter` แล้วเปิด Pull Request เข้า `main` ระบุวิธีและผลทดสอบ
+
+ก่อนส่งงาน ตรวจ `git status` และ `git diff main...HEAD` ให้แน่ใจว่าชุดงานมีเฉพาะไฟล์ที่เกี่ยวข้อง ใช้ข้อมูลสมมติในภาพหน้าจอและคำสั่งที่ส่งให้ AI
+
+อ่านขั้นตอนรับงานและออกรุ่นใน [คู่มือผู้ดูแล Git](MAINTAINERS.md)
