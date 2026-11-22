@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "DISC2: Initialize demo database",
+      "type": "process",
+      "command": "php",
+      "args": ["tools/init.php"],
+      "problemMatcher": []
+    },
+    {
+      "label": "DISC2: Start preview",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-File", "tools/serve.ps1", "-Port", "${input:disc2Port}"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "disc2Port",
+      "type": "promptString",
+      "description": "Loopback port assigned to your DISC2 preview",
+      "default": "8760"
+    }
+  ]
+}
