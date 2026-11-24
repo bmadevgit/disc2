@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Workflow;
 
+use InvalidArgumentException;
+
 final readonly class DeadlineInput
 {
     /** @param list<array{requested_days: int, ...}> $extensions In sequence order. */
@@ -17,6 +19,13 @@ final readonly class DeadlineInput
         public array $extensions = [],
         public bool $legacy = false,
     ) {
+    }
+
+    public static function validateDays(mixed $days): void
+    {
+        if (!is_int($days) || $days < 1 || $days > 365000) {
+            throw new InvalidArgumentException('Expected a duration from 1 to 365000 whole days.');
+        }
     }
 
     /** Reconstitute an existing 180-day serious round. */

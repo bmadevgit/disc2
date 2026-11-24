@@ -12,7 +12,7 @@ final class DeadlineCalculator
     public function calculate(DeadlineInput $input): DeadlineResult
     {
         $duration = $input->durationDays ?? $input->type->defaultDays();
-        self::validateDays($duration);
+        DeadlineInput::validateDays($duration);
         if ($input->legacy) {
             if ($input->type !== TrackType::Serious || $duration !== 180) {
                 throw new InvalidArgumentException('Legacy timing applies to existing 180-day serious rounds.');
@@ -27,7 +27,7 @@ final class DeadlineCalculator
         $history = [];
         foreach ($input->extensions as $extension) {
             $days = $extension['requested_days'] ?? null;
-            self::validateDays($days);
+            DeadlineInput::validateDays($days);
             $extendedDue = $extendedDue->modify("+$days days");
             $extension['new_due_date'] = $extendedDue->format('Y-m-d');
             $history[] = $extension;
@@ -50,13 +50,6 @@ final class DeadlineCalculator
             extensions: $published->extensions);
 
         return new DeadlineConversion($published, $this->calculate($current), $reason);
-    }
-
-    private static function validateDays(mixed $days): void
-    {
-        if (!is_int($days) || $days < 1 || $days > 365000) {
-            throw new InvalidArgumentException('Expected a duration from 1 to 365000 whole days.');
-        }
     }
 
     private function startDate(DeadlineInput $input): DateTimeImmutable

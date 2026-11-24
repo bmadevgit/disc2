@@ -84,9 +84,30 @@ final class DeadlineCalculatorTest extends TestCase
         ]);
         $converted = (new DeadlineCalculator())->confirmLegacy($input, 'Reviewed', $published);
         self::assertSame($published, $converted->before);
+        self::assertSame('2024-08-12', $converted->before->extendedDueDate());
         self::assertSame('2024-06-04', $converted->after->dueDate);
         self::assertSame([['requested_days' => 7, 'reason' => 'Prior decision', 'new_due_date' => '2024-06-11']],
             $converted->after->extensions);
+    }
+
+    public static function malformedPublishedSchedules(): iterable
+    {
+        yield 'missing start' => ['', 180, '2024-08-02', []];
+        yield 'invalid base deadline' => ['2024-02-05', 180, '2024-02-30', []];
+        yield 'invalid base duration' => ['2024-02-05', 0, '2024-08-02', []];
+        yield 'missing extension date' => ['2024-02-05', 180, '2024-08-02', [['requested_days' => 7]]];
+        yield 'non-canonical extension date' => ['2024-02-05', 180, '2024-08-02', [['requested_days' => 7, 'new_due_date' => '2024-8-09']]];
+        yield 'null extension date' => ['2024-02-05', 180, '2024-08-02', [['requested_days' => 7, 'new_due_date' => null]]];
+        yield 'missing extension duration' => ['2024-02-05', 180, '2024-08-02', [['new_due_date' => '2024-08-09']]];
+        yield 'extension duration out of bounds' => ['2024-02-05', 180, '2024-08-02', [['requested_days' => 365001, 'new_due_date' => '2024-08-09']]];
+        yield 'malformed row' => ['2024-02-05', 180, '2024-08-02', ['invalid']];
+    }
+
+    #[DataProvider('malformedPublishedSchedules')]
+    public function testMalformedPublishedScheduleRejectedAtConstruction(string $start, int $days, string $due, array $extensions): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new DeadlineResult($start, $days, $due, '', $extensions);
     }
 
     public function testManualOverrideSurvivesConversion(): void

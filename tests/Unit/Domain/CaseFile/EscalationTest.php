@@ -28,14 +28,20 @@ final class EscalationTest extends TestCase
         [$dates] = $fixtures['dates']['discipline_nonserious']['different'];
         $schedule = (new DeadlineCalculator())->calculate(new DeadlineInput(TrackType::NonSerious,
             $dates['acknowledged_date'], $dates['first_meeting_date'], extensions: [$row['extension']]));
-        $members = [['subject_id' => 1, 'ended_at' => null], ['subject_id' => 2, 'ended_at' => null]];
+        $members = [
+            ['track_id' => 10, 'subject_id' => 1, 'ended_at' => null],
+            ['track_id' => 10, 'subject_id' => 2, 'ended_at' => null],
+        ];
         $this->source = new DisciplineRound(
             track: ['id' => 10, 'case_id' => 7, 'track_type' => 'discipline_nonserious', 'due_date' => $schedule->dueDate],
             orders: [['event_type' => 'appoint', 'order_number' => $row['original_order']]],
             extensions: $schedule->extensions,
             members: $members,
             committeeSets: [['id' => 1, 'order_number' => $row['original_order']]],
-            committeeMembers: $members,
+            committeeMembers: [
+                ['committee_set_id' => 1, 'subject_id' => 1, 'ended_at' => null],
+                ['committee_set_id' => 1, 'subject_id' => 2, 'ended_at' => null],
+            ],
             findings: $row['old_results'],
             decisions: [1 => [['order_number' => $row['old_decision'], 'reports' => [['letter_number' => $row['old_report']]]]]],
         );
@@ -94,6 +100,43 @@ final class EscalationTest extends TestCase
         $target = new DisciplineRound(['id' => 22, 'case_id' => $caseId, 'track_type' => $type], $this->target->orders);
         $this->expectException($exception);
         Escalation::transfer($subject, $this->source, $target, $date, $reference, new DateTimeImmutable());
+    }
+
+    public function testMissingEndStateCannotAuthorizeFinding(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $source = new DisciplineRound($this->source->track, members: [['track_id' => 10, 'subject_id' => 1]]);
+        $source->withFinding(1, $this->fixture['old_results'][1]);
+    }
+
+    public function testMissingCommitteeEndStateCannotAuthorizeEscalation(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $source = new DisciplineRound($this->source->track, members: $this->source->members,
+            committeeSets: $this->source->committeeSets, committeeMembers: [['committee_set_id' => 1, 'subject_id' => 1]],
+            findings: $this->fixture['old_results']);
+        Escalation::transfer(1, $source, $this->target, $this->fixture['effective_date'],
+            $this->fixture['reference'], new DateTimeImmutable());
+    }
+
+    public static function malformedMemberships(): iterable
+    {
+        yield 'missing subject' => [[['track_id' => 10, 'ended_at' => null]], []];
+        yield 'invalid subject' => [[['track_id' => 10, 'subject_id' => 0, 'ended_at' => null]], []];
+        yield 'foreign track' => [[['track_id' => 11, 'subject_id' => 1, 'ended_at' => null]], []];
+        yield 'missing track' => [[['subject_id' => 1, 'ended_at' => null]], []];
+        yield 'bad end type' => [[['track_id' => 10, 'subject_id' => 1, 'ended_at' => false]], []];
+        yield 'malformed row' => [['invalid'], []];
+        yield 'missing committee set' => [[], [['subject_id' => 1, 'ended_at' => null]]];
+        yield 'unknown committee set' => [[], [['committee_set_id' => 2, 'subject_id' => 1, 'ended_at' => null]]];
+    }
+
+    #[DataProvider('malformedMemberships')]
+    public function testMalformedMembershipRejectedAtConstruction(array $members, array $committeeMembers): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new DisciplineRound($this->source->track, members: $members, committeeSets: $this->source->committeeSets,
+            committeeMembers: $committeeMembers);
     }
 
     public function testRecommendationMustHaveAValidFlag(): void

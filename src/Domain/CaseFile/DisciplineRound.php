@@ -32,6 +32,8 @@ final readonly class DisciplineRound
             || !is_int($track['case_id'] ?? null) || $track['case_id'] < 1) {
             throw new InvalidArgumentException('Expected a disciplinary round with a track ID and case ID.');
         }
+        self::validateMemberships($members, 'track_id', [$track['id']]);
+        self::validateMemberships($committeeMembers, 'committee_set_id', array_column($committeeSets, 'id'));
         $this->type = $type;
     }
 
@@ -84,6 +86,20 @@ final readonly class DisciplineRound
         $members = $this->members;
         $members[] = ['track_id' => $this->track['id'], 'subject_id' => $subjectId, 'ended_at' => null];
         return $this->copy(members: $members);
+    }
+
+    private static function validateMemberships(array $rows, string $parentKey, array $parentIds): void
+    {
+        foreach ($rows as $row) {
+            if (!is_array($row) || !is_int($row['subject_id'] ?? null) || $row['subject_id'] < 1
+                || !array_key_exists('ended_at', $row) || ($row['ended_at'] !== null && !is_string($row['ended_at']))) {
+                throw new InvalidArgumentException('Membership requires a subject ID and an explicit end state.');
+            }
+            $parentId = $row[$parentKey] ?? null;
+            if (!is_int($parentId) || $parentId < 1 || !in_array($parentId, $parentIds, true)) {
+                throw new InvalidArgumentException("Membership has an invalid $parentKey for this round.");
+            }
+        }
     }
 
     private static function endMemberships(array $rows, int $subjectId, string $endedAt): array
