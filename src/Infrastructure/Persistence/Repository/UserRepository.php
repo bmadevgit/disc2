@@ -12,6 +12,20 @@ final class UserRepository extends Repository
             .($adminOnly ? " AND role='admin'" : ''), [$username]);
     }
 
+    public function byId(string $id, bool $adminOnly): ?array
+    {
+        return $this->row('SELECT id,username,name,role,password_hash FROM users WHERE id=?'
+            .($adminOnly ? " AND role='admin'" : ''), [$id]);
+    }
+
+    public function bmaAccount(string $id): ?array
+    {
+        return $this->row("SELECT a.bma_email, a.unit_level1,
+            (SELECT l.user_name FROM login_log l WHERE l.username=a.bma_email AND l.user_role='user' AND l.status='success'
+                ORDER BY l.id DESC LIMIT 1) AS name
+            FROM user_unit_assignments a WHERE a.bma_personal_id=? AND a.unit_level1<>''", [$id]);
+    }
+
     public function unitFor(string $personalId): ?string
     {
         return $this->row('SELECT unit_level1 FROM user_unit_assignments WHERE bma_personal_id=?', [$personalId])['unit_level1'] ?? null;

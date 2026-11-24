@@ -5,7 +5,11 @@ services:
 
     App\:
         resource: '../src/'
-        exclude: '../src/Kernel.php'
+        exclude: ['../src/Kernel.php', '../src/Security/User.php']
+
+    App\Security\BrowserSecuritySubscriber:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
 
     App\Infrastructure\Persistence\ConnectionFactory:
         arguments:
@@ -13,8 +17,16 @@ services:
             $environment: '%kernel.environment%'
             $configFile: '%env(default:disc2.external_config:DISC2_CONFIG_FILE)%'
 
+    App\Application\Auth\AuthSettings:
+        arguments:
+            $environment: '%kernel.environment%'
+            $configFile: '%env(default:disc2.external_config:DISC2_CONFIG_FILE)%'
+
+    App\Application\Auth\BmaDirectory: '@App\Application\Auth\BmaApiDirectory'
+
     PDO:
         class: PDO
+        lazy: true
         factory: ['@App\Infrastructure\Persistence\ConnectionFactory', 'open']
 
     App\Command\MigrateCommand:
@@ -23,3 +35,9 @@ services:
 
 parameters:
     disc2.external_config: 'C:/inetpub/private/disc2-config.php'
+
+when@test:
+    services:
+        App\Application\Auth\BmaDirectory:
+            alias: App\Application\Auth\BmaApiDirectory
+            public: true

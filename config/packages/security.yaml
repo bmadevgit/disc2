@@ -1,8 +1,15 @@
 security:
     providers:
-        scaffold:
-            memory: ~
+        actors: { id: App\Security\UserProvider }
+    session_fixation_strategy: invalidate
     firewalls:
         main:
             lazy: true
-            provider: scaffold
+            provider: actors
+            custom_authenticators: [App\Security\LoginAuthenticator]
+            entry_point: App\Security\LoginAuthenticator
+            access_denied_handler: App\Security\ForbiddenResponse
+    access_control:
+        - { path: '^/(?:login|logout|i|save|update_case|update_unit_target)\.php$', roles: PUBLIC_ACCESS }
+        - { route: runtime_smoke, roles: PUBLIC_ACCESS }
+        - { path: '^/', roles: ROLE_USER }

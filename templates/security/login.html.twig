@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+{% block title %}เข้าสู่ระบบ · DISC2{% endblock %}
+{% block body %}
+<main class="card">
+    <h1>{{ demo ? 'เข้าสู่ระบบทดสอบ DISC2' : 'เข้าสู่ระบบสำนวนวินัย' }}</h1>
+    {% if demo %}<p>ใช้บัญชีสมมติใน <code>runtime/demo-accounts.json</code> ของสำเนานี้</p>{% endif %}
+    {% if error %}<p class="notice danger" role="alert">{{ error }}</p>{% endif %}
+    <form method="post">
+        <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+        {% if not demo %}
+            <label>ประเภทบัญชี <select name="login_type">
+                <option value="bma">BMA Mail</option>
+                <option value="admin">ผู้ดูแลระบบ</option>
+            </select></label>
+        {% endif %}
+        <p><label>ชื่อบัญชี<input name="username" autocomplete="username" required></label></p>
+        <p><label>{{ demo ? 'รหัสผ่าน' : 'รหัสผ่าน หรือเลขประจำตัวประชาชนสำหรับ BMA Mail' }}<input name="password" type="password" autocomplete="current-password" required></label></p>
+        <button class="btn green" type="submit">เข้าสู่ระบบ</button>
+    </form>
+</main>
+{% endblock %}

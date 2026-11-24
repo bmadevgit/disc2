@@ -4,6 +4,8 @@ framework:
     router:
         utf8: true
     session:
+        name: DISC2SFSESSID
+        cookie_httponly: true
         cookie_secure: auto
         cookie_samesite: lax
         save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
@@ -15,6 +17,8 @@ framework:
 when@test:
     framework:
         test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file
 
 when@dev:
     parameters:

@@ -1,3 +1,13 @@
+login:
+    path: /login.php
+    controller: App\Controller\LoginController
+    methods: [GET, POST]
+
+logout:
+    path: /logout.php
+    controller: App\Controller\LogoutController
+    methods: [GET, POST]
+
 # Exercise the IIS mount in tests until the first application routes are ready.
 when@test:
     runtime_smoke:
@@ -5,3 +15,8 @@ when@test:
         controller: Symfony\Bundle\FrameworkBundle\Controller\TemplateController
         defaults: { template: base.html.twig }
         methods: [GET]
+
+    security_probe:
+        path: /_test/security/{caseId}
+        controller: App\Tests\Functional\Security\AuthorizationProbeController
+        methods: [GET, POST]

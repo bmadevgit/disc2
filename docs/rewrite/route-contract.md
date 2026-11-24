@@ -18,8 +18,8 @@ Paths are relative to the application mount (including `/exam/disc2` on IIS). Re
 | `/edit.php` | redirect alias | GET | id cast to integer | 302 case.php?id={id} | Authenticated | case_edit_alias |
 | `/i.php` | redirect alias | GET | None | 302 index.php | Public | index_alias |
 | `/index.php` | page | GET | q, unit, type, stage, finding | 200 scoped list or unassigned notice, 302 admin.php for executive/unit head | Authenticated | case_index |
-| `/login.php` | page | GET, POST | username, password, login_type (live bma/admin), csrf (demo) | 200 login/error form, 302 after login or with existing session | Public | login |
-| `/logout.php` | redirect alias | GET | None | Destroys session, 302 login.php | Public | logout |
+| `/login.php` | page | GET, POST | username, password, login_type (live bma/admin), csrf (legacy demo and every Symfony login POST) | 200 login/error form, 302 after login or with existing session | Public | login |
+| `/logout.php` | page | GET, POST | csrf on POST | Legacy GET destroys session. Symfony intentionally protects logout from CSRF. Authenticated GET shows a confirmation form, anonymous GET redirects to login.php, and POST with a valid csrf destroys the session and redirects to login.php. | Public | logout |
 | `/migrate.php` | CLI-only | CLI | Configured database | Applies pending SQL versions once, HTTP 404 | CLI operator | Console migration command |
 | `/profile.php` | redirect alias | GET | None | 302 index.php | Authenticated | profile_alias |
 | `/roles.php` | page | GET, POST | csrf, personal_id, display_name, access_role, unit_level1, unit_level2, active | 200 assignments, 302 roles.php?saved=1 after POST, 403 non-admin | Admin | access_roles |
@@ -72,4 +72,4 @@ All actions accept `csrf` and `case_id`. Their forms live in the unreferenced al
 | discipline_result | track_type, result[subject_id] with result_code, next_action, detail, action_type, offense_basis |
 | decision | decision[subject_id] with decision_path, report_kk_date, disciplinary_resolution_date, termination_reason, proposal_letter_number, commander_outcome, other_outcome, other_note, order_no, order_date, completed_date |
 
-The legacy demo login redirects all successful POSTs to `index.php`. Live local admin login redirects to `admin.php`, and live BMA login redirects to `index.php` or `admin.php` for the configured super-admin. The live form checks a five-failure, 15-minute per-IP limit. The synthetic suite uses the local demo login.
+The legacy demo login redirects all successful POSTs to `index.php`. Live local admin login redirects to `admin.php`, and live BMA login redirects to `index.php` or `admin.php` for the configured super-admin. The live form checks a five-failure, 15-minute per-IP limit. Symfony applies that limit to both live and demo logins, and records the outcome in login_log. The synthetic suite uses local demo credentials and a simulated BMA directory.
