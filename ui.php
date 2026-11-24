@@ -6,9 +6,8 @@ function pageHead($title) {
     header('Pragma: no-cache');
   }
 ?>
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title><?=h($title)?> · DISC UAT</title><link rel="stylesheet" href="<?=appUrl('uat.css?v=workflow')?>"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"></head><body>
-<div class="uat-banner">⚠️ ระบบทดสอบ UAT — ข้อมูลชุดทดสอบแยกจากระบบ Production</div>
-<nav><a class="brand" href="<?=appUrl('index.php')?>">⚖️ DISC UAT</a><?php if(isUatSuperAdmin() || (($_SESSION['user_role']??'')==='admin')): ?><a href="<?=appUrl('admin.php')?>">Dashboard</a><?php endif; ?><span><?=h($_SESSION['user_name']??'')?></span><a href="<?=appUrl('logout.php')?>">ออกจากระบบ</a></nav><main>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title><?=h($title)?> · DISC</title><link rel="stylesheet" href="<?=appUrl('uat.css?v=profile-menu')?>"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"></head><body>
+<nav><div class="nav-shell"><a class="brand" href="<?=appUrl('index.php')?>">⚖️ DISC UAT</a><div class="nav-links"><a href="<?=appUrl('index.php')?>">หน้าหลัก</a><?php if(isUatSuperAdmin() || (($_SESSION['user_role']??'')==='admin')): ?><a href="<?=appUrl('admin.php')?>">Dashboard</a><?php endif; ?></div><div class="nav-account"><details class="profile-menu"><summary><span class="profile-avatar" aria-hidden="true">👤</span><span class="profile-name"><?=h($_SESSION['user_name']??'ผู้ใช้')?></span><span class="profile-caret" aria-hidden="true"></span></summary><div class="profile-dropdown"><div class="profile-meta"><strong><?=h($_SESSION['user_name']??'ผู้ใช้')?></strong><span><?=h($_SESSION['user_role']??'user')?></span></div><a href="<?=appUrl('index.php')?>">หน้าหลัก</a><a class="profile-logout" href="<?=appUrl('logout.php')?>">ออกจากระบบ</a></div></details></div></div></nav><main>
 <?php }
 function pageFoot() { ?>
 </main><script src="https://cdn.jsdelivr.net/npm/flatpickr"></script><script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script><script>
