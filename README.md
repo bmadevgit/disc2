@@ -32,6 +32,8 @@ flowchart TD
 
 ## 1. รับสิทธิ์และเตรียมเครื่อง
 
+การติดตั้ง PHP ในหัวข้อนี้ใช้สำหรับเปิดเว็บจาก PowerShell วิธี Docker Compose บน WSL 2 อยู่ในหัวข้อ 3
+
 1. แจ้ง GitHub username ให้ผู้ดูแล กด **Accept invitation** ด้วยบัญชีที่ถูกเชิญ แล้วเปิด [หน้ารายการไฟล์ของ DISC2](https://github.com/bmadevgit/disc2) ให้เห็น README
 2. ติดตั้ง [Git for Windows](https://gitforwindows.org/) พร้อม Git Credential Manager, [VS Code](https://code.visualstudio.com/) และ PHP 8.5 สำหรับ Windows ให้ `php.exe` อยู่ใน PATH ใช้ `php --ini` ดูว่า PHP อ่าน `php.ini` ไฟล์ใด แล้วเปิด `extension=pdo_sqlite` และ `extension=curl` ตามคู่มือ PHP [การติดตั้ง PHP บน Windows](https://www.php.net/manual/en/install.windows.php)
 3. เปิด PowerShell ใหม่ ตรวจว่า `git --version` และ `php -v` ใช้งานได้ ถ้า Git เปิดหน้าล็อกอินระหว่าง clone หรือ push ให้เลือกบัญชี GitHub ที่กดรับคำเชิญ [การลงชื่อเข้า GitHub ด้วย Git Credential Manager](https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git)
@@ -74,6 +76,40 @@ powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
 ```powershell
 $env:DISC2_DEV = '1'
 try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
+```
+
+### เปิดเว็บด้วย Docker Compose บน WSL 2
+
+ใช้เทอร์มินัลของดิสโทร WSL 2 ที่เข้าถึง Docker Engine และใช้คำสั่ง `docker compose` ได้ ถ้าใช้ Docker Desktop ให้เปิด WSL Integration สำหรับดิสโทรนั้น วิธีนี้ใช้ PHP ในคอนเทนเนอร์ จึงไม่ต้องติดตั้ง PHP ใน WSL
+
+รันจากรากโครงการ `disc2` ที่มี `compose.yaml` คำสั่ง `export` ตั้งให้คอนเทนเนอร์สร้างไฟล์ทดสอบด้วย UID และ GID ของผู้ใช้ WSL ให้รันในเทอร์มินัลที่ใช้สั่ง Compose
+
+```bash
+docker info --format '{{.ServerVersion}}'
+docker compose version
+export DISC2_UID="$(id -u)" DISC2_GID="$(id -g)"
+docker compose build app
+```
+
+สร้างฐานและบัญชีสมมติครั้งเดียวต่อสำเนาโครงการ ข้ามขั้นตอนนี้ถ้าสำเนานั้นมีฐานและบัญชีสมมติอยู่แล้ว
+
+```bash
+docker compose run --rm app php tools/init.php
+```
+
+เริ่มเว็บแล้วดูรหัสผ่านของบัญชีสมมติ
+
+```bash
+docker compose up -d app
+cat runtime/demo-accounts.json
+```
+
+เปิดเบราว์เซอร์ที่ `http://127.0.0.1:8760/` แล้วเข้าด้วย `demo-owner` เพื่อดูสำนวน `DEMO-001` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
+
+หยุดเว็บจากรากโครงการด้วยคำสั่งด้านล่าง ฐานและบัญชีสมมติยังอยู่สำหรับการเปิดเว็บครั้งถัดไป
+
+```bash
+docker compose down
 ```
 
 ## 4. ส่งงานผ่าน Pull Request
