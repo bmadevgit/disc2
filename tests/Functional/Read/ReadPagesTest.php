@@ -180,6 +180,29 @@ final class ReadPagesTest extends SyntheticDatabaseTestCase
         foreach (['ORDER-7','2024-01-02','2024-04-30','2024-05-02'] as $text) self::assertStringContainsString($text, $track->text());
     }
 
+    public function testUnscheduledSeriousDraftOffersConversionUntilAnExtensionExists(): void
+    {
+        $this->actor('case_owner');
+        $this->db->exec("INSERT INTO uat_tracks(id,case_id,track_type,set_no,duration_days)
+            VALUES(3,1,'discipline_serious',2,180)");
+        $url = '/track.php?case_id=1&type=discipline_serious&track_id=3';
+        $page = $this->page($url);
+        $confirmation = $page->filter('details form');
+        self::assertCount(1, $confirmation);
+        self::assertSame('convert_serious_deadline', $confirmation->filter('input[name=action]')->attr('value'));
+        self::assertSame('3', $confirmation->filter('input[name=track_id]')->attr('value'));
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $confirmation->filter('input[name=revision]')->attr('value'));
+        self::assertCount(1, $confirmation->filter('input[name=reason][required]'));
+        self::assertSame(['วันเริ่มนับ ยังไม่ระบุ → ยังไม่ระบุ', 'วันครบกำหนด ยังไม่ระบุ → ยังไม่ระบุ'],
+            $page->filter('details p')->each(fn ($line) => $line->text()));
+        self::assertStringNotContainsString('ไม่สามารถคำนวณกำหนดเวลา', $page->text());
+
+        $this->db->exec("INSERT INTO uat_extensions(track_id,sequence_no,requested_days) VALUES(3,1,2)");
+        $page = $this->page($url);
+        self::assertCount(0, $page->filter('input[value=convert_serious_deadline]'));
+        self::assertStringContainsString('ไม่สามารถคำนวณกำหนดเวลา', $page->text());
+    }
+
     public function testStoredSeriousRoundRemainsReadableWhenConversionPreviewIsUnavailable(): void
     {
         $this->actor('case_owner');

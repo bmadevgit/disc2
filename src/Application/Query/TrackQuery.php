@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Query;
 
-use App\Domain\Workflow\{DeadlineCalculator, DeadlineInput, TrackType};
+use App\Domain\Workflow\{CalendarDate, DeadlineCalculator, DeadlineInput, TrackType};
 use App\Infrastructure\Persistence\Repository\{CommitteeRepository, ExtensionRepository, TrackRepository};
 use InvalidArgumentException;
 
@@ -23,18 +23,30 @@ final readonly class TrackQuery
         }
         $ext = $this->extensions->forTrack($tr['id']);
         $days = $type === TrackType::Serious && $tr['duration_days'] === 180 ? 180 : $type->defaultDays();
-        $preview = null;
-        if ($edit && $days === 180 && ($tr['first_meeting_date'] !== '' || $tr['start_override_reason'] !== '')) {
-            $manual = $tr['start_override_reason'] !== '' ? $tr['start_date'] : '';
-            try {
-                $preview = $this->calculator->calculate(new DeadlineInput($type, $tr['acknowledged_date'], $tr['first_meeting_date'],
-                    manualStart: $manual, startOverrideReason: $tr['start_override_reason'], extensions: $ext));
-            } catch (InvalidArgumentException) {
-                // Stored schedules can predate the validation rules for new deadlines.
-                $preview = null;
-            }
-        }
+        $preview = $edit && $days === 180 ? $this->conversionPreview($tr, $ext) : null;
         return compact('caseId', 'tr', 'ext', 'days', 'preview', 'edit') + ['type'=>$type->value, 'title'=>WorkflowLabels::trackTitle($tr),
             'revision'=>hash('sha256', serialize([$tr, $ext])), 'orders'=>$this->committees->orders($tr['id'])];
+    }
+
+    /** A blank date is a valid draft value. A null preview means conversion is unavailable. */
+    private function conversionPreview(array $track, array $extensions): ?array
+    {
+        try {
+            if ($track['first_meeting_date'] === '' && $track['start_override_reason'] === ''
+                && $track['start_date'] === '' && $track['due_date'] === '' && $extensions === []) {
+                if ($track['acknowledged_date'] !== '') {
+                    CalendarDate::parse($track['acknowledged_date']);
+                }
+                return ['startDate'=>'', 'dueDate'=>'', 'extensions'=>[]];
+            }
+            $manual = $track['start_override_reason'] !== '' ? $track['start_date'] : '';
+            $result = $this->calculator->calculate(new DeadlineInput(TrackType::Serious, $track['acknowledged_date'],
+                $track['first_meeting_date'], manualStart: $manual, startOverrideReason: $track['start_override_reason'],
+                extensions: $extensions));
+            return ['startDate'=>$result->startDate, 'dueDate'=>$result->dueDate, 'extensions'=>$result->extensions];
+        } catch (InvalidArgumentException) {
+            // Stored schedules can predate the validation rules for new deadlines.
+            return null;
+        }
     }
 }

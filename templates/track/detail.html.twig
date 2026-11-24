@@ -29,11 +29,11 @@
         {% else %}
             <p>วันเริ่มนับ {{ tr.start_date ?: 'ยังไม่ระบุ' }} · {{ days }} วัน · ครบกำหนด {{ tr.due_date ?: 'ยังไม่ระบุ' }}</p>
         {% endif %}
-        {% if preview %}
+        {% if preview is not null %}
             <details>
                 <summary>ตรวจสอบการปรับระยะเวลาเดิมเป็น 120 วัน</summary>
-                <p>วันเริ่มนับ {{ tr.start_date ?: 'ยังไม่ระบุ' }} → {{ (preview.startDate ?? '') ?: 'ยังไม่ระบุ' }}</p>
-                <p>วันครบกำหนด {{ tr.due_date ?: 'ยังไม่ระบุ' }} → {{ (preview.dueDate ?? '') ?: 'ยังไม่ระบุ' }}</p>
+                <p>วันเริ่มนับ {{ tr.start_date ?: 'ยังไม่ระบุ' }} → {{ preview.startDate ?: 'ยังไม่ระบุ' }}</p>
+                <p>วันครบกำหนด {{ tr.due_date ?: 'ยังไม่ระบุ' }} → {{ preview.dueDate ?: 'ยังไม่ระบุ' }}</p>
                 {% if ext %}
                     <table>
                         <thead>
@@ -48,7 +48,7 @@
                                 <tr>
                                     <td>{{ extension.sequence_no }}</td>
                                     <td>{{ ext[key].new_due_date }}</td>
-                                    <td>{{ preview.extensions[key].new_due_date ?? '' }}</td>
+                                    <td>{{ preview.extensions[key].new_due_date }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
