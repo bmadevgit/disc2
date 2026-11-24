@@ -6,6 +6,7 @@ namespace App\Application\Query;
 
 use App\Domain\Workflow\{DeadlineCalculator, DeadlineInput, TrackType};
 use App\Infrastructure\Persistence\Repository\{CommitteeRepository, ExtensionRepository, TrackRepository};
+use InvalidArgumentException;
 
 final readonly class TrackQuery
 {
@@ -25,8 +26,13 @@ final readonly class TrackQuery
         $preview = null;
         if ($edit && $days === 180 && ($tr['first_meeting_date'] !== '' || $tr['start_override_reason'] !== '')) {
             $manual = $tr['start_override_reason'] !== '' ? $tr['start_date'] : '';
-            $preview = $this->calculator->calculate(new DeadlineInput($type, $tr['acknowledged_date'], $tr['first_meeting_date'],
-                manualStart: $manual, startOverrideReason: $tr['start_override_reason'], extensions: $ext));
+            try {
+                $preview = $this->calculator->calculate(new DeadlineInput($type, $tr['acknowledged_date'], $tr['first_meeting_date'],
+                    manualStart: $manual, startOverrideReason: $tr['start_override_reason'], extensions: $ext));
+            } catch (InvalidArgumentException) {
+                // Stored schedules can predate the validation rules for new deadlines.
+                $preview = null;
+            }
         }
         return compact('caseId', 'tr', 'ext', 'days', 'preview', 'edit') + ['type'=>$type->value, 'title'=>WorkflowLabels::trackTitle($tr),
             'revision'=>hash('sha256', serialize([$tr, $ext])), 'orders'=>$this->committees->orders($tr['id'])];

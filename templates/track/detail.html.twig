@@ -29,7 +29,7 @@
         {% else %}
             <p>วันเริ่มนับ {{ tr.start_date ?: 'ยังไม่ระบุ' }} · {{ days }} วัน · ครบกำหนด {{ tr.due_date ?: 'ยังไม่ระบุ' }}</p>
         {% endif %}
-        {% if edit and days == 180 %}
+        {% if preview %}
             <details>
                 <summary>ตรวจสอบการปรับระยะเวลาเดิมเป็น 120 วัน</summary>
                 <p>วันเริ่มนับ {{ tr.start_date ?: 'ยังไม่ระบุ' }} → {{ (preview.startDate ?? '') ?: 'ยังไม่ระบุ' }}</p>
@@ -70,6 +70,8 @@
                     </div>
                 </form>
             </details>
+        {% elseif edit and days == 180 %}
+            <p class="notice warn">ไม่สามารถคำนวณกำหนดเวลา 120 วันจากข้อมูลที่บันทึกไว้ได้ กรุณาตรวจสอบวันที่และรายการขยายเวลา</p>
         {% endif %}
         <p><a class="btn small" href="{{ path('discipline_results',{case_id:tr.case_id, type:tr.track_type, track_id:tr.id}) }}">ผลการสอบสวนวินัยรายบุคคล</a></p>
     </section>

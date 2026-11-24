@@ -180,6 +180,23 @@ final class ReadPagesTest extends SyntheticDatabaseTestCase
         foreach (['ORDER-7','2024-01-02','2024-04-30','2024-05-02'] as $text) self::assertStringContainsString($text, $track->text());
     }
 
+    public function testStoredSeriousRoundRemainsReadableWhenConversionPreviewIsUnavailable(): void
+    {
+        $this->actor('case_owner');
+        // Omitting requested_days reproduces the zero-day default in the original schema.
+        $this->db->exec("INSERT INTO uat_extensions(track_id,sequence_no,new_due_date,reason)
+            VALUES(2,2,'2024-06-30','Archived extension')");
+        $page = $this->page('/track.php?case_id=1&type=discipline_serious&track_id=2');
+        self::assertSame('2024-01-01', $page->filter('input[name=start_date]')->attr('value'));
+        self::assertSame('180', $page->filter('input[name=duration_days]')->attr('value'));
+        self::assertSame('2024-06-28', $page->filter('input[name=preview_due]')->attr('value'));
+        self::assertStringContainsString('ORDER-7', $page->text());
+        $record = $page->filter('tbody tr')->last();
+        self::assertSame(['2','0','','Archived extension','2024-06-30'], $record->filter('td')->each(fn ($cell) => $cell->text()));
+        self::assertStringContainsString('ไม่สามารถคำนวณกำหนดเวลา 120 วัน', $page->text());
+        self::assertCount(0, $page->filter('input[value=convert_serious_deadline]'));
+    }
+
     public function testPriorRoundDetailsAndScopedCommitteeChoices(): void
     {
         $this->actor('case_owner');
