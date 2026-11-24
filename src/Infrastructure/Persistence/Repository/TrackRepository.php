@@ -62,6 +62,12 @@ final class TrackRepository extends Repository
             WHERE ts.subject_id=? AND t.case_id=? ORDER BY t.track_type<>'fact',t.id", [$subjectId, $caseId]);
     }
 
+    public function member(int $trackId, int $subjectId): ?array
+    {
+        return $this->row('SELECT ts.* FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
+            JOIN uat_subjects s ON s.id=ts.subject_id AND s.case_id=t.case_id WHERE ts.track_id=? AND ts.subject_id=?', [$trackId, $subjectId]);
+    }
+
     public function members(int $trackId): array
     {
         return $this->rows('SELECT ts.* FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
@@ -110,7 +116,16 @@ final class TrackRepository extends Repository
 
     public function saveDates(int $trackId, string $acknowledged, string $meeting, DeadlineResult $result): void
     {
+        $this->saveSchedule($trackId, ['acknowledged_date'=>$acknowledged, 'first_meeting_date'=>$meeting,
+            'start_date'=>$result->startDate, 'duration_days'=>$result->durationDays, 'due_date'=>$result->dueDate,
+            'start_override_reason'=>$result->startOverrideReason]);
+    }
+
+    /** Includes unscheduled drafts with blank start and due dates. */
+    public function saveSchedule(int $trackId, array $dates): void
+    {
         $this->execute('UPDATE uat_tracks SET acknowledged_date=?,first_meeting_date=?,start_date=?,duration_days=?,due_date=?,start_override_reason=?
-            WHERE id=?', [$acknowledged, $meeting, $result->startDate, $result->durationDays, $result->dueDate, $result->startOverrideReason, $trackId]);
+            WHERE id=?', [$dates['acknowledged_date'], $dates['first_meeting_date'], $dates['start_date'],
+            $dates['duration_days'], $dates['due_date'], $dates['start_override_reason'], $trackId]);
     }
 }

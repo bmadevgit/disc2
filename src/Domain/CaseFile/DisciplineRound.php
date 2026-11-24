@@ -52,6 +52,14 @@ final readonly class DisciplineRound
         if (!$this->hasMember($subjectId)) {
             throw new DomainException('Findings can only be changed in the current round.');
         }
+        self::validateFinding($this->type, $finding);
+        $findings = $this->findings;
+        $findings[$subjectId] = $finding;
+        return $this->copy(findings: $findings);
+    }
+
+    public static function validateFinding(TrackType $type, array $finding): void
+    {
         if (!in_array($finding['finding'] ?? null, ['', 'guilty', 'not_guilty'], true)) {
             throw new InvalidArgumentException('Unknown disciplinary finding.');
         }
@@ -60,12 +68,9 @@ final readonly class DisciplineRound
             throw new InvalidArgumentException('Expected a recommendation flag of 0 or 1.');
         }
         if ($recommendation === 1
-            && ($this->type === TrackType::Serious || trim($finding['committee_opinion'] ?? '') === '')) {
+            && ($type === TrackType::Serious || trim($finding['committee_opinion'] ?? '') === '')) {
             throw new InvalidArgumentException('A serious recommendation requires a non-serious round and a committee opinion.');
         }
-        $findings = $this->findings;
-        $findings[$subjectId] = $finding;
-        return $this->copy(findings: $findings);
     }
 
     public function withoutActiveMember(int $subjectId, string $endedAt): self

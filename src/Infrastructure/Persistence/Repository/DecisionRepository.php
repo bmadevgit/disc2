@@ -26,10 +26,15 @@ final class DecisionRepository extends Repository
         return $this->rows('SELECT * FROM uat_kk_reports WHERE decision_id=? ORDER BY sequence_no', [$decisionId]);
     }
 
-    public function forSnapshot(int $caseId, int $trackId, string $route): array
+    public function forSnapshot(int $caseId, int $trackId, string $route, ?int $subjectId = null): array
     {
-        $decisions = $this->rows('SELECT * FROM uat_decisions WHERE case_id=? AND (track_id=? OR (track_id IS NULL AND route_type=?))',
-            [$caseId, $trackId, $route]);
+        $sql = 'SELECT * FROM uat_decisions WHERE case_id=? AND (track_id=? OR (track_id IS NULL AND route_type=?))';
+        $params = [$caseId, $trackId, $route];
+        if ($subjectId !== null) {
+            $sql .= ' AND subject_id=?';
+            $params[] = $subjectId;
+        }
+        $decisions = $this->rows($sql, $params);
         $bySubject = [];
         foreach ($decisions as $decision) {
             $decision['reports'] = $this->reports($decision['id']);

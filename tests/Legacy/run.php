@@ -294,7 +294,7 @@ function runLegacy(string $root): void
             $editor = checkRoles($db, $base, $accounts);
             echo "PASS role, scope, identity, aliases and status contracts\n";
             $fixtures = require $root.'/tests/Fixtures/legacy-workflows.php';
-            checkWorkflows($editor, $db, $fixtures);
+            checkWorkflows($editor->request(...), $db, $fixtures);
             same('ok', $db->query('PRAGMA integrity_check')->fetchColumn(), 'Database integrity');
             same([], $db->query('PRAGMA foreign_key_check')->fetchAll(), 'Foreign keys');
             echo "PASS workflow dates, results, escalation, history and database integrity\n";
@@ -328,23 +328,23 @@ function extensionDates(PDO $db, int $id): array
     return $db->query("SELECT new_due_date FROM uat_extensions WHERE track_id=$id ORDER BY sequence_no")->fetchAll(PDO::FETCH_COLUMN);
 }
 
-function checkWorkflows(Browser $editor, PDO $db, array $fixture): void
+function checkWorkflows(Closure $request, PDO $db, array $fixture): void
 {
-    $factForm = $editor->request('/case.php?id=1&page=2', 200);
+    $factForm = $request('/case.php?id=1&page=2', 200);
     containsText($factForm, 'method="post" action="/save_case.php"', true, 'Fact form target');
     foreach (['case_id','acknowledged_date','first_meeting_date','duration_days','finding[1]','finding[2]'] as $name) {
         containsText($factForm, 'name="'.$name.'"', true, "Fact form field $name");
     }
     $csrf = field($factForm, 'csrf');
     $form = ['csrf'=>$csrf, 'case_id'=>1];
-    $post = function (string $action, array $fields, int $status, ?string $location = null) use ($editor, $form): void {
-        $editor->request('/save_case.php', $status, $form + ['action'=>$action] + $fields, $location);
+    $post = function (string $action, array $fields, int $status, ?string $location = null) use ($request, $form): void {
+        $request('/save_case.php', $status, $form + ['action'=>$action] + $fields, $location);
     };
     $tab = fn(int $page) => "/case.php?id=1&page=$page&saved=1";
-    $editor->request('/save_case.php', 405);
-    $editor->request('/save_case.php', 419, ['action'=>'save_fact','case_id'=>1]);
+    $request('/save_case.php', 405);
+    $request('/save_case.php', 419, ['action'=>'save_fact','case_id'=>1]);
     $post('unknown', [], 400);
-    $editor->request('/save_comment2.php', 422, $form + ['action'=>'unknown']);
+    $request('/save_comment2.php', 422, $form + ['action'=>'unknown']);
     $post('save_fact', ['duration_days'=>0], 422);
     foreach ($fixture['dates']['fact'] as $name => [$fields,$expected]) {
         $post('save_fact', $fields + ['finding'=>[1=>'ground',2=>'ground']], 302, $tab(2));
@@ -363,9 +363,9 @@ function checkWorkflows(Browser $editor, PDO $db, array $fixture): void
     $post('add_extension', ['track_id'=>$source] + $round['extension'], 302, $sourcePath.'&saved=1');
     same([$round['extended_due']], extensionDates($db, $source), 'Non-serious extension');
 
-    $editor->request('/save_discipline.php', 405);
+    $request('/save_discipline.php', 405);
     foreach ($round['old_results'] as $sid=>$result) {
-        $editor->request('/save_discipline.php', 302, $form + ['track_id'=>$source,'subject_id'=>$sid] + $result,
+        $request('/save_discipline.php', 302, $form + ['track_id'=>$source,'subject_id'=>$sid] + $result,
             trackPath($type, $source, 'discipline_results').'&saved=1');
     }
     $post('save_decision', ['subject_id'=>1,'track_id'=>$source,'order_number'=>$round['old_decision']], 302, $tab(4));
@@ -384,7 +384,7 @@ function checkWorkflows(Browser $editor, PDO $db, array $fixture): void
     $target = trackId($db, $serious, 2);
     $targetPath = trackPath($serious, $target);
     $post('add_order', ['track_id'=>$target,'event_type'=>'appoint','order_number'=>$round['selected_order']], 302, $targetPath.'&saved=1');
-    $results = $editor->request(trackPath($type,$source,'discipline_results'), 200);
+    $results = $request(trackPath($type,$source,'discipline_results'), 200);
     containsText($results, 'method="post" action="/save_discipline.php"', true, 'Discipline result form target');
     $html = new DOMDocument();
     $html->loadHTML($results, LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_NONET);
@@ -423,8 +423,8 @@ function checkWorkflows(Browser $editor, PDO $db, array $fixture): void
         $post('save_track', $fields + ['track_id'=>$target,'track_type'=>$serious], 302, $targetPath.'&saved=1');
         same($expected, datesInDb($db, $target), "Serious $name");
     }
-    $editor->request('/save_discipline.php', 409, $form + ['subject_id'=>1,'track_id'=>$source] + $round['new_result']);
-    $editor->request('/save_discipline.php', 302, $form + ['subject_id'=>1,'track_id'=>$target] + $round['new_result'],
+    $request('/save_discipline.php', 409, $form + ['subject_id'=>1,'track_id'=>$source] + $round['new_result']);
+    $request('/save_discipline.php', 302, $form + ['subject_id'=>1,'track_id'=>$target] + $round['new_result'],
         trackPath($serious,$target,'discipline_results').'&saved=1');
     $findings = $db->query("SELECT track_id,subject_id,finding FROM uat_subject_findings WHERE track_id IN ($source,$target) ORDER BY track_id,subject_id")->fetchAll(PDO::FETCH_NUM);
     same([[$source,1,$round['old_results'][1]['finding']],[$source,2,$round['old_results'][2]['finding']],[$target,1,$round['new_result']['finding']]], $findings, 'Per-person results across rounds');
@@ -433,10 +433,10 @@ function checkWorkflows(Browser $editor, PDO $db, array $fixture): void
     same(['subject_id'=>1,'before'=>$source,'after'=>$target,'date'=>$round['effective_date'],'reference'=>$round['reference']],
         json_decode($audit[0], true, flags: JSON_THROW_ON_ERROR), 'Escalation audit fields');
 
-    checkConversion($db, $editor, $post, $fixture['legacy_conversion']);
+    checkConversion($db, $request, $post, $fixture['legacy_conversion']);
 }
 
-function checkConversion(PDO $db, Browser $editor, Closure $post, array $fixture): void
+function checkConversion(PDO $db, Closure $request, Closure $post, array $fixture): void
 {
     $type = 'discipline_serious';
     $id = trackId($db, $type);
@@ -444,14 +444,14 @@ function checkConversion(PDO $db, Browser $editor, Closure $post, array $fixture
     $track = ['track_id'=>$id,'track_type'=>$type];
     $post('save_track', $track + $fixture['dates'] + ['duration_days'=>120], 302, $path.'&saved=1');
     same($fixture['old'], datesInDb($db, $id), 'Ordinary save keeps 180 days');
-    $stale = field($editor->request($path, 200), 'revision');
+    $stale = field($request($path, 200), 'revision');
     foreach ($fixture['extensions'] as $extension) {
         $post('add_extension', ['track_id'=>$id,'requested_days'=>$extension['days'],'reason'=>$extension['reason']], 302, $path.'&saved=1');
     }
     $oldDue = array_column($fixture['extensions'],'before');
     $newDue = array_column($fixture['extensions'],'after');
     same($oldDue, extensionDates($db,$id), 'Original extension history');
-    $revision = field($editor->request($path, 200), 'revision');
+    $revision = field($request($path, 200), 'revision');
     $post('convert_serious_deadline', $track + ['revision'=>$stale,'reason'=>$fixture['reason']], 409);
     $post('convert_serious_deadline', $track + ['revision'=>$revision,'reason'=>' '], 422);
     same($fixture['old'], datesInDb($db,$id), 'Rejected confirmation keeps deadline');

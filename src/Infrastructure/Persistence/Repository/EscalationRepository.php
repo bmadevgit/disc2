@@ -24,17 +24,27 @@ final class EscalationRepository extends Repository
         parent::__construct($db);
     }
 
-    public function round(int $caseId, TrackType $type, int $trackId): ?DisciplineRound
+    public function round(int $caseId, TrackType $type, int $trackId, ?int $subjectId = null): ?DisciplineRound
     {
         $track = $this->tracks->find($caseId, $type, $trackId);
         if (!$track) {
             return null;
         }
         $trackId = $track['id'];
+        $findings = $subjectId === null ? $this->findings->forTrack($trackId)
+            : array_filter([$this->findings->forSubject($trackId, $subjectId)]);
         return new DisciplineRound($track, $this->committees->orders($trackId), $this->extensions->forTrack($trackId),
             $this->tracks->members($trackId), $this->committees->sets($trackId), $this->committees->setMembers($trackId),
-            array_column($this->findings->forTrack($trackId), null, 'subject_id'),
-            $this->decisions->forSnapshot($caseId, $trackId, $type === TrackType::NonSerious ? 'nonserious' : 'serious'));
+            array_column($findings, null, 'subject_id'),
+            $this->decisions->forSnapshot($caseId, $trackId, $type === TrackType::NonSerious ? 'nonserious' : 'serious', $subjectId));
+    }
+
+    public function previousTarget(int $caseId, int $subjectId, int $from): ?array
+    {
+        return $this->row("SELECT t.* FROM uat_escalations e JOIN uat_subjects s ON s.id=e.subject_id
+            JOIN uat_tracks t ON t.id=e.to_track_id AND t.case_id=s.case_id AND t.track_type='discipline_serious'
+            JOIN uat_tracks source ON source.id=e.from_track_id AND source.case_id=s.case_id
+            WHERE s.case_id=? AND s.active=1 AND s.id=? AND source.id=?", [$caseId, $subjectId, $from]);
     }
 
     public function forSubject(int $subjectId): array

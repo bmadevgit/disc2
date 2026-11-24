@@ -15,7 +15,7 @@
     <section class="card">
         <h2 class="section-title">กำหนดระยะเวลา</h2>
         {% if edit %}
-            <form method="post" action="{{ app.request.basePath ~ '/save_case.php' }}" class="grid" data-deadline="{{ type }}">
+            <form method="post" action="{{ path('case_save') }}" class="grid" data-deadline="{{ type }}">
                 <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
                 <input type="hidden" name="action" value="save_track">
                 <input type="hidden" name="case_id" value="{{ caseId }}">
@@ -54,7 +54,7 @@
                         </tbody>
                     </table>
                 {% endif %}
-                <form method="post" action="{{ app.request.basePath ~ '/save_case.php' }}" class="grid">
+                <form method="post" action="{{ path('case_save') }}" class="grid">
                     <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
                     <input type="hidden" name="action" value="convert_serious_deadline">
                     <input type="hidden" name="track_type" value="{{ type }}">
@@ -78,7 +78,7 @@
     <section class="card">
         <h2 class="section-title">คำสั่งคณะกรรมการ</h2>
         {% if edit %}
-            <form method="post" action="{{ app.request.basePath ~ '/save_case.php' }}" class="grid">
+            <form method="post" action="{{ path('case_save') }}" class="grid">
                 <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
                 <input type="hidden" name="action" value="add_order">
                 <input type="hidden" name="case_id" value="{{ caseId }}">
@@ -132,7 +132,7 @@
     <section class="card">
         <h2 class="section-title">ขยายเวลาสอบสวน</h2>
         {% if edit %}
-            <form method="post" action="{{ app.request.basePath ~ '/save_case.php' }}" class="grid">
+            <form method="post" action="{{ path('case_save') }}" class="grid">
                 <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
                 <input type="hidden" name="action" value="add_extension">
                 <input type="hidden" name="case_id" value="{{ caseId }}">

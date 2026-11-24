@@ -39,7 +39,7 @@
             <span class="decision-type">{{ isSerious?'วินัยอย่างร้ายแรง':'วินัยอย่างไม่ร้ายแรง' }}</span>
             </h3>
             {% if edit %}
-                <form method="post" action="{{ app.request.basePath ~ '/save_case.php' }}" class="grid decision-form">
+                <form method="post" action="{{ path('case_save') }}" class="grid decision-form">
                     <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
                     <input type="hidden" name="action" value="save_decision">
                     <input type="hidden" name="case_id" value="{{ id }}">

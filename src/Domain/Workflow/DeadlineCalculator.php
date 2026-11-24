@@ -40,16 +40,24 @@ final class DeadlineCalculator
     public function confirmLegacy(DeadlineInput $input, string $reason, DeadlineResult $published): DeadlineConversion
     {
         $reason = trim($reason);
+        if ($reason === '') {
+            throw new InvalidArgumentException('Confirmation requires a reason.');
+        }
+        return new DeadlineConversion($published, $this->previewLegacy($input, $published), $reason);
+    }
+
+    public function previewLegacy(DeadlineInput $input, DeadlineResult $published): DeadlineResult
+    {
         if (!$input->legacy || $input->type !== TrackType::Serious || $input->durationDays !== 180
-            || $published->durationDays !== 180 || $reason === '') {
-            throw new InvalidArgumentException('Confirmation requires an existing 180-day schedule and a reason.');
+            || $published->durationDays !== 180) {
+            throw new InvalidArgumentException('Confirmation requires an existing 180-day schedule.');
         }
 
         $current = new DeadlineInput(TrackType::Serious, $input->acknowledgedDate, $input->firstMeetingDate,
             manualStart: $input->manualStart, startOverrideReason: $input->startOverrideReason,
             extensions: $published->extensions);
 
-        return new DeadlineConversion($published, $this->calculate($current), $reason);
+        return $this->calculate($current);
     }
 
     private function startDate(DeadlineInput $input): DateTimeImmutable

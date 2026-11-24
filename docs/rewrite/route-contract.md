@@ -24,7 +24,7 @@ Paths are relative to the application mount (including `/exam/disc2` on IIS). Re
 | `/profile.php` | redirect alias | GET | None | 302 index.php | Authenticated | profile_alias |
 | `/roles.php` | page | GET, POST | csrf, personal_id, display_name, access_role, unit_level1, unit_level2, active | 200 assignments, 302 roles.php?saved=1 after POST, 403 non-admin | Admin | access_roles |
 | `/save.php` | retired-410 | Any | Ignored | 410 plain message | Public | retired_save |
-| `/save_case.php` | write endpoint | POST | csrf, action, case_id except create, see form table | 302 saved case tab or selected track, 400 unknown action, 403/404/405/419/422, 409 stale state | Admin or active case owner | case_save |
+| `/save_case.php` | write endpoint | POST | csrf, action, case_id except create, see form table | 302 saved case tab or selected track, 400 unknown action, 403/404/405/419/422, 409 stale state, 503 on workflow lock timeout | Admin or active case owner | case_save |
 | `/save_comment2.php` | write endpoint | POST | csrf, case_id, action, older form fields below | Legacy dispatch, 302 saved case tab on successful action, 403 absent case/edit, 422 unknown action. Some branches reference obsolete schema | Case editor | comment2_save |
 | `/save_discipline.php` | write endpoint | POST | csrf, case_id, track_id, subject_id, finding, opinion fields, recommend_serious | 302 discipline_results.php with track query and saved=1, 403/405/409/419/422 | Case editor | discipline_save |
 | `/save_workflow.php` | internal include | Internal | Authenticated save_case action and scope | Handles discipline assignments, escalation, deadlines and decisions | Internal | No public route |
@@ -46,14 +46,16 @@ Tab redirects have the form `case.php?id={case_id}&page={tab}&saved=1`. Track re
 | --- | --- | --- |
 | create_case | case_number, responsible_unit, unit_level2, case_type, case_type_other, received_date, preliminary_allegation | Tab 1, creates owner and audit. Empty number gives a 200 validation message. |
 | save_page1 | Create fields, source_type, source_other, subjects[index] with id, title, first, last, position, employment, national_id, status, status_date, status_reason | Tab 1, metadata, subjects and status history |
-| save_fact | acknowledged_date, first_meeting_date, duration_days, start_mode, start_date, start_override_reason, finding/severity/finding_detail keyed by subject ID | Tab 2, fact deadlines, per-person findings and stage |
+| save_fact | acknowledged_date, first_meeting_date, duration_days, start_mode, start_date, start_override_reason, preview_due, finding/severity/finding_detail keyed by subject ID | Tab 2, fact deadlines, per-person findings and stage |
 | assign_discipline | track_for[subject_id] | Tab 3, assign eligible active subjects |
-| save_track | track_type, track_id, acknowledged_date, first_meeting_date, start_mode, start_date, start_override_reason | Track, duration set by stored track type and legacy duration |
+| save_track | track_type, track_id, acknowledged_date, first_meeting_date, start_mode, start_date, start_override_reason, duration_days, preview_due | Track, duration set by stored track type and legacy duration |
 | convert_serious_deadline | track_type, track_id, revision, reason | Track, 409 stale revision, 422 blank reason |
 | add_order | track_id, event_type, order_date, order_number, detail | Fact tab 2 or discipline track |
 | add_extension | track_id, requested_days, completed_work, reason | Fact tab 2 or discipline track |
 | escalate_discipline | track_id, subject_id, effective_date, reference, target_track (existing serious ID or new) | Selected serious track, preserves previous round |
 | save_decision | track_id, subject_id, report_kk_date, kk_resolution_date, kk_resolution, commander_decision, order_number, order_date, finished_date | Tab 4, 409 stale round, 422 serious order without resolution and date |
+
+The server ignores the posted preview and discipline duration. Automatic timing uses the acknowledgement and first meeting. A manual start requires an override reason. Confirmation checks the stored 180-day track and extension revision under the writer lock. An extension-free draft can convert with its dates blank. A schedule that cannot produce a valid confirmation preview returns 422. Workflow lock contention returns 503 with a one-second Retry-After header.
 
 The separate `save_discipline.php` form accepts `committee_opinion`, `appointing_authority_opinion`, `offense_basis`, and `allegation`. Outcomes are blank, `guilty`, or `not_guilty`. A serious recommendation on a non-serious track needs a committee opinion.
 
@@ -71,8 +73,8 @@ All actions accept `csrf` and `case_id`. Their forms live in the unreferenced al
 | fact | process_mode, process_other, acknowledged_date, first_meeting_date, start_date, duration_days, note, result[subject_id] with result_code, next_action, detail |
 | track_time | track_type, acknowledged_date, first_meeting_date, start_date, duration_days, note |
 | extension | track_id, requested_days, completed_date, reason, page |
-| referral | track_id, subject_id, ordered_date, received_date, status, note |
-| committee | track_type, set_name, order_no, appointed_date, members[] |
+| referral | track_id, subject_id, ordered_date, received_date, status, note. The 45-day referral deadline includes the order date. |
+| committee | track_type, set_name, order_no, appointed_date, members[]. Symfony records the named set, its appointment order and the selected active people in the current committee and membership tables. |
 | discipline_result | track_type, result[subject_id] with result_code, next_action, detail, action_type, offense_basis |
 | decision | decision[subject_id] with decision_path, report_kk_date, disciplinary_resolution_date, termination_reason, proposal_letter_number, commander_outcome, other_outcome, other_note, order_no, order_date, completed_date |
 

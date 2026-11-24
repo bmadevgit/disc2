@@ -42,3 +42,5 @@ case_view_alias: { path: /view_case.php, controller: App\Controller\ReadAliasCon
 users_alias: { path: /users.php, controller: App\Controller\ReadAliasController::users, methods: [GET] }
 case_save: { path: /save_case.php, controller: App\Controller\CaseWriteController, methods: [GET, POST] }
 access_roles_save: { path: /roles.php, controller: App\Controller\RoleController, methods: [POST] }
+discipline_save: { path: /save_discipline.php, controller: App\Controller\DisciplineWriteController, methods: [GET, POST] }
+comment2_save: { path: /save_comment2.php, controller: App\Controller\CommitteeController, methods: [GET, POST] }
