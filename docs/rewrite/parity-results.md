@@ -32,7 +32,7 @@
 
 ## Rollback evidence
 
-The rehearsal took an online SQLite backup before applying the packaged migration. After the UI writes, it stopped the HTTPS listener and packaged app workers and made a second online backup. The pre-cutover maximum audit ID was zero. The following counts precede the old UI readback, which adds login history.
+The rehearsal took an online SQLite backup before the packaged migration or any staged login. The baseline held zero login-history rows and zero BMA unit assignments. The frozen rollback-time backup contained 13 login-history rows and seven BMA unit assignments. An original IIS mapping and a verified snapshot of the previous Windows configuration must be captured on Windows before switching the mapping or permitting sign-in. After the UI writes, it stopped the HTTPS listener and packaged app workers and made a second online backup. The pre-cutover maximum audit ID was zero. The following counts precede the old UI readback, which adds login history.
 
 | Frozen result | Pre-cutover | At production rollback |
 | --- | ---: | ---: |
