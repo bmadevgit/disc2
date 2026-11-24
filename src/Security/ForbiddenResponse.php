@@ -21,6 +21,7 @@ final class ForbiddenResponse implements AccessDeniedHandlerInterface
         $message = match ($route) {
             'case_detail', 'case_detail_clean' => 'ไม่มีสิทธิ์เข้าดูสำนวนนี้',
             'subject_detail', 'subject_detail_clean' => 'ไม่มีสิทธิ์เข้าดูสำนวน',
+            'case_save', 'discipline_save' => 'ไม่มีสิทธิ์แก้ไข',
             'comment2_save' => 'ไม่มีสิทธิ์แก้ไขสำนวน',
             default => 'ไม่มีสิทธิ์',
         };

@@ -66,9 +66,11 @@ final class DisciplineWriteTest extends WriteTestCase
         $this->login('demo-reader');
         $fields = ['case_id'=>1,'track_id'=>42,'subject_id'=>99,'effective_date'=>'bad','members'=>['bad']];
         foreach (['save_fact','save_track','convert_serious_deadline','add_extension','add_order','assign_discipline','escalate_discipline','save_decision'] as $action) {
-            $this->post(['action'=>$action] + $fields, 403);
+            $response = $this->post(['action'=>$action] + $fields, 403);
+            self::assertSame('ไม่มีสิทธิ์แก้ไข', $response->getContent());
         }
-        $this->post($fields, 403, '/save_discipline.php');
+        $response = $this->post($fields, 403, '/save_discipline.php');
+        self::assertSame('ไม่มีสิทธิ์แก้ไข', $response->getContent());
         $this->post(['action'=>'committee'] + $fields, 403, '/save_comment2.php');
         $this->post($fields + ['csrf'=>'bad'], 419, '/save_discipline.php');
         self::assertSame([], $this->rows('SELECT * FROM uat_audit_log'));
