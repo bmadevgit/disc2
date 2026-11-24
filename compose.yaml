@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    # Keep the demo database and credentials owned by the WSL user.
+    user: "${DISC2_UID:-1000}:${DISC2_GID:-1000}"
+    environment:
+      DISC2_DEV: "1"
+      DISC2_DOCKER: "1"
+    ports:
+      - "127.0.0.1:8760:8760"
+    volumes:
+      - .:/app
+    command: [php, -S, "0.0.0.0:8760", tools/router.php]
