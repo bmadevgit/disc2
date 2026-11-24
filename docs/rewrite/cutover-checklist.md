@@ -16,7 +16,10 @@
 
 ## During the approved production window
 
-- [ ] The operator freezes HTTP, background and other writers, drains active transactions, records the audit watermark and verifies a fresh online backup including committed WAL data. Snapshot the current config, bindings, handler settings and release mapping.
+- [ ] While the prior release is active, the operator freezes HTTP, sign-ins, background jobs and other writers, drains active transactions and records the UTC freeze time.
+- [ ] Export the original IIS mapping, bindings, handler settings and pool identities. Retain the previous package and snapshot its external configuration in private storage. Verify the snapshot's SHA-256 against the original file and record the hash and restore location.
+- [ ] Record the authoritative database path and audit watermark (the maximum audit ID, or zero for a new or empty ledger). Take a fresh SQLite online backup including committed WAL data. Open it independently, confirm the same watermark, require exactly `ok` from `PRAGMA integrity_check` and zero rows from `PRAGMA foreign_key_check`, and record the backup SHA-256 and restore location.
+- [ ] **Pre-switch gate.** Record all three results in the private change record. If any baseline evidence is missing or mismatched, keep production frozen on the previous mapping.
 - [ ] Verify the production package digest again. Switch to the clean release's `public` path and compatible external config. Run the documented production IIS preflight, explicit migration and follow-up smoke with the independently approved production parameters. Keep normal traffic closed during validation.
 - [ ] Confirm fresh sign-in and scoped list, detail, subject, workflow, dashboard and administration access. Verify database path, integrity, foreign keys, cookie/CSRF behavior and denial of private files through the actual binding. Record the operator, time, results and reopen decision.
 

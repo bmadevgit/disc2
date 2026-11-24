@@ -48,6 +48,10 @@ The rehearsal took an online SQLite backup before the packaged migration or any 
 
 **Demo restore.** Used a separate old code tree, restored its configuration snapshot and copied only the pre-cutover database into a clean data directory. All 24 tables and every row matched the pre-cutover backup, with zero new audits. The old UI showed the baseline case and no new case, role or final order. Comparing that restore against the rollback-time backup correctly failed on `cases`.
 
+## Operator instruction verification
+
+The README, IIS runbook, staging checklist and production checklist each put the verified baseline before the candidate switch, migration and sign-in. A PHPUnit release regression checks the first occurrence of each instruction within its operator section, including verification of the external config snapshot SHA-256. Before the correction, the README and production checklist failed. All four paths subsequently passed (78 assertions). This verification applies to the instructions; Windows staging still requires a recorded baseline from the previous deployment.
+
 ## Approval boundary
 
 The rehearsal evidence commit is SSH-signed with a disposable rehearsal key. The operator must separately verify the approved release signer, exact production artifact and actual deployed prior version. No production credentials, database, endpoint, release tag or Server-A site participated. Use the private change record to sign the live Windows, directory, restore and traffic-reopening gates. [IIS runbook](../IIS-DEPLOYMENT.md) · [Operator gates](cutover-checklist.md)
