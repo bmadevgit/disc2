@@ -119,6 +119,8 @@ docker compose down
 
 ### IIS Server-A ที่ /exam/disc2
 
+ผู้ดูแลสร้าง ZIP จากแท็กที่ลงนาม ตรวจ SHA-256 และซ้อม rollback บน IIS staging ก่อนเปิดรับการเขียน รุ่น production ต้องเก็บข้อมูลและ audit ที่บันทึกหลัง cutover ทั้งหมด [คู่มือออกรุ่นและย้อนรุ่นบน IIS](docs/IIS-DEPLOYMENT.md)
+
 เมื่อทดสอบบน staging ให้คง application alias `/exam/disc2` และโฟลเดอร์ติดตั้ง `C:\inetpub\wwwroot\exam\disc2` เปลี่ยน Physical Path ของ IIS application ครั้งเดียวเป็น `C:\inetpub\wwwroot\exam\disc2\public` ให้ IIS อ่าน `web.config` จากโฟลเดอร์นี้ ติดตั้ง IIS URL Rewrite และเปิด PHP FastCGI handler สำหรับ `index.php` กฎ rewrite ใช้เส้นทางสัมพัทธ์และส่ง query string ต่อให้ Symfony
 
 ใช้ PHP 8.2 ขึ้นไป พร้อม PDO SQLite, cURL, mbstring, intl และ OPcache ตั้ง `APP_ENV=prod`, `APP_DEBUG=0` และ `APP_SECRET` ส่วนตัวในสภาพแวดล้อมของ FastCGI และ CLI เก็บการตั้งค่าของ Server-A ที่ `C:\inetpub\private\disc2-config.php` กับฐาน SQLite ไว้นอก `public` ให้ application-pool identity อ่าน source/config/vendor และเขียน `var/cache`, `var/log` และ `var/sessions` ได้
