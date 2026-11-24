@@ -26,28 +26,22 @@ final class MigrateCommand extends Command
         if (!$files) {
             throw new RuntimeException('No versioned SQL migrations found.');
         }
-        $migrations = [];
-        foreach ($files as $file) {
-            $migrations[basename($file, '.sql')] = $file;
-        }
         $applied = [];
-        // 004 rebuilds two parent tables. SQLite would cascade their children on DROP
-        // with enforcement enabled. foreign_key_check validates the entire batch before commit.
-        $rebuild = isset($migrations['004_workflow']) && !$this->workflowRebuildApplied();
-        if ($rebuild) {
-            $this->db->exec('PRAGMA foreign_keys=OFF');
-        }
+        $started = false;
         try {
-            $this->db->beginTransaction();
+            $this->db->exec('PRAGMA foreign_keys=ON');
+            // Reserve the writer before even looking at an existing ledger in WAL mode.
+            $this->db->exec('BEGIN IMMEDIATE');
+            $started = true;
             $this->db->exec('CREATE TABLE IF NOT EXISTS uat_schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-            $this->db->exec('UPDATE uat_schema_migrations SET version=version WHERE 0');
             // A fresh install starts with the legacy base tables from tools/base-schema.sql.
             if (!$this->db->query("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='cases'")->fetchColumn()) {
                 throw new RuntimeException('The legacy base schema is missing.');
             }
             $done = $this->db->query('SELECT version FROM uat_schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
             $record = $this->db->prepare('INSERT OR IGNORE INTO uat_schema_migrations(version) VALUES(?)');
-            foreach ($migrations as $version => $file) {
+            foreach ($files as $file) {
+                $version = basename($file, '.sql');
                 if (in_array($version, $done, true)) {
                     continue;
                 }
@@ -55,7 +49,11 @@ final class MigrateCommand extends Command
                 if ($sql === false || trim($sql) === '') {
                     throw new RuntimeException('Could not read migration '.$version);
                 }
-                $this->db->exec($sql);
+                if ($version === '004_workflow') {
+                    $this->rebuildWorkflow($sql);
+                } else {
+                    $this->db->exec($sql);
+                }
                 $record->execute([$version]);
                 $applied[] = $version;
             }
@@ -65,15 +63,13 @@ final class MigrateCommand extends Command
             if ($this->db->query('PRAGMA integrity_check')->fetchAll(PDO::FETCH_COLUMN) !== ['ok']) {
                 throw new RuntimeException('SQLite integrity check failed.');
             }
-            $this->db->commit();
+            $this->db->exec('COMMIT');
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
+            if ($started && $this->db->inTransaction()) {
+                $this->db->exec('ROLLBACK');
             }
             $output->writeln('<error>'.$e->getMessage().'</error>');
             return Command::FAILURE;
-        } finally {
-            $this->db->exec('PRAGMA foreign_keys=ON');
         }
         foreach ($applied as $version) {
             $output->writeln('Applied '.$version);
@@ -82,11 +78,41 @@ final class MigrateCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function workflowRebuildApplied(): bool
+    /**
+     * 004 drops tracks and decisions after copying their rows, then renames their
+     * replacements. Stage their cascading children in SQLite temp storage so the
+     * original SQL can run with foreign keys enabled throughout the transaction.
+     */
+    private function rebuildWorkflow(string $sql): void
     {
-        if (!$this->db->query("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='uat_schema_migrations'")->fetchColumn()) {
-            return false;
+        // Parent-first order restores committee sets before their memberships.
+        $children = [
+            'uat_track_subjects', 'uat_committee_orders', 'uat_extensions', 'uat_subject_findings',
+            'uat_committee_sets', 'uat_committee_set_subjects', 'uat_referrals', 'uat_kk_reports',
+        ];
+        // Refuse to drop rows from an installation-specific dependent table that
+        // this historical migration cannot restore.
+        $parents = ['uat_tracks', 'uat_decisions', ...$children];
+        $dependencies = $this->db->query("SELECT s.name AS child,f.[table] AS parent FROM sqlite_schema s
+            JOIN pragma_foreign_key_list(s.name) f WHERE s.type='table' AND f.on_delete IN ('CASCADE','SET NULL','SET DEFAULT')");
+        foreach ($dependencies->fetchAll(PDO::FETCH_ASSOC) as $edge) {
+            if (in_array(strtolower($edge['parent']), $parents, true) && !in_array(strtolower($edge['child']), $children, true)) {
+                throw new RuntimeException('Unexpected dependency in workflow rebuild: '.$edge['child']);
+            }
         }
-        return (bool)$this->db->query("SELECT 1 FROM uat_schema_migrations WHERE version='004_workflow'")->fetchColumn();
+        foreach ($children as $table) {
+            $this->db->exec("CREATE TEMP TABLE saved_$table AS SELECT * FROM main.$table");
+        }
+        $this->db->exec($sql);
+        foreach ($children as $table) {
+            // These two tables gained trailing columns with defaults in 004.
+            $columns = match ($table) {
+                'uat_track_subjects' => '(track_id,subject_id)',
+                'uat_subject_findings' => '(id,track_id,subject_id,finding,severity,allegation_detail,incident_detail,action_type,offense_basis)',
+                default => '',
+            };
+            $this->db->exec("INSERT INTO main.$table$columns SELECT * FROM temp.saved_$table");
+            $this->db->exec("DROP TABLE temp.saved_$table");
+        }
     }
 }

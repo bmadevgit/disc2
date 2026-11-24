@@ -70,16 +70,18 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
 
     public function testPopulatedPreWorkflowDatabaseRetainsChildrenWhenParentsAreRebuilt(): void
     {
-        $db = $this->base();
-        foreach (array_slice(self::VERSIONS, 0, 3) as $version) {
-            $db->exec(file_get_contents($this->root.'/migrations/'.$version.'.sql'));
-            $db->prepare('INSERT OR IGNORE INTO uat_schema_migrations(version) VALUES(?)')->execute([$version]);
-        }
+        $db = $this->preWorkflowDatabase();
         $db->exec("INSERT INTO cases(id) VALUES(7);
             INSERT INTO uat_tracks(id,case_id,track_type,duration_days) VALUES(11,7,'discipline_serious',180);
             INSERT INTO uat_subjects(id,case_id,sequence_no) VALUES(17,7,1);
             INSERT INTO uat_track_subjects(track_id,subject_id) VALUES(11,17);
             INSERT INTO uat_extensions(track_id,sequence_no,requested_days) VALUES(11,1,7);
+            INSERT INTO uat_committee_orders(track_id,event_type,order_number) VALUES(11,'appoint','test order');
+            INSERT INTO uat_subject_findings(track_id,subject_id,finding,incident_detail,offense_basis)
+                VALUES(11,17,'guilty','historical incident','original basis');
+            INSERT INTO uat_referrals(track_id,subject_id,note) VALUES(11,17,'historical referral');
+            INSERT INTO uat_committee_sets(id,track_id,set_code) VALUES(19,11,'previous');
+            INSERT INTO uat_committee_set_subjects(committee_set_id,subject_id,ended_at) VALUES(19,17,'old');
             INSERT INTO uat_decisions(id,case_id,subject_id,route_type) VALUES(23,7,17,'serious');
             INSERT INTO uat_kk_reports(decision_id,sequence_no,letter_number) VALUES(23,1,'synthetic');");
         $db = $this->connection();
@@ -87,8 +89,84 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
         self::assertSame(['id'=>11,'set_no'=>1,'duration_days'=>180], $db->query('SELECT id,set_no,duration_days FROM uat_tracks')->fetch());
         self::assertSame(['track_id'=>11,'subject_id'=>17,'ended_at'=>null], $db->query('SELECT * FROM uat_track_subjects')->fetch());
         self::assertSame(7, $db->query('SELECT requested_days FROM uat_extensions WHERE track_id=11')->fetchColumn());
+        self::assertSame('test order', $db->query('SELECT order_number FROM uat_committee_orders WHERE track_id=11')->fetchColumn());
+        self::assertSame(['incident_detail'=>'historical incident','offense_basis'=>'original basis','recommend_serious'=>0],
+            $db->query('SELECT incident_detail,offense_basis,recommend_serious FROM uat_subject_findings WHERE subject_id=17')->fetch());
+        self::assertSame('historical referral', $db->query('SELECT note FROM uat_referrals WHERE track_id=11')->fetchColumn());
+        self::assertSame('previous', $db->query('SELECT set_code FROM uat_committee_sets WHERE id=19')->fetchColumn());
+        self::assertSame('old', $db->query('SELECT ended_at FROM uat_committee_set_subjects WHERE committee_set_id=19')->fetchColumn());
         self::assertSame(11, $db->query('SELECT track_id FROM uat_decisions WHERE id=23')->fetchColumn());
         self::assertSame('synthetic', $db->query('SELECT letter_number FROM uat_kk_reports WHERE decision_id=23')->fetchColumn());
+    }
+
+    public function testUpgradeFrom003UsesNormalCascadesInFollowingVersion(): void
+    {
+        $db = $this->preWorkflowDatabase();
+        $db->exec("INSERT INTO cases(id) VALUES(7);
+            INSERT INTO uat_tracks(id,case_id,track_type) VALUES(11,7,'fact');
+            INSERT INTO uat_subjects(id,case_id,sequence_no) VALUES(17,7,1);
+            INSERT INTO uat_track_subjects(track_id,subject_id) VALUES(11,17);
+            INSERT INTO uat_subject_status_history(subject_id,status_name) VALUES(17,'fixture')");
+        $dir = $this->directory.'/migrations';
+        mkdir($dir);
+        copy($this->root.'/migrations/004_workflow.sql', $dir.'/004_workflow.sql');
+        file_put_contents($dir.'/005_fixture.sql', 'DELETE FROM uat_subjects WHERE id=17');
+        $db = $this->connection();
+        $command = new CommandTester(new MigrateCommand($db, $dir));
+        self::assertSame(0, $command->execute([]), $command->getDisplay());
+        self::assertSame(0, $db->query('SELECT COUNT(*) FROM uat_subject_status_history')->fetchColumn());
+        self::assertSame(0, $db->query('SELECT COUNT(*) FROM uat_track_subjects')->fetchColumn());
+        self::assertSame('005_fixture', $db->query('SELECT MAX(version) FROM uat_schema_migrations')->fetchColumn());
+    }
+
+    public function testMigratorReservesWriterBeforeReadingExistingLedger(): void
+    {
+        $this->copiedFixture();
+        $peer = $this->connection();
+        $peer->exec('PRAGMA busy_timeout=1');
+        $dir = $this->directory.'/migrations';
+        mkdir($dir);
+        file_put_contents($dir.'/005_fixture.sql', 'CREATE TABLE arrived_once(id INTEGER)');
+        $competing = new CommandTester(new MigrateCommand($peer, $dir));
+        // Interleave two real connections deterministically immediately after ledger discovery.
+        $first = new class('sqlite:'.$this->path) extends PDO {
+            public \Closure $atLedger;
+            public function exec(string $statement): int|false
+            {
+                $result = parent::exec($statement);
+                if (str_starts_with($statement, 'CREATE TABLE IF NOT EXISTS uat_schema_migrations')) {
+                    ($this->atLedger)();
+                }
+                return $result;
+            }
+        };
+        $first->exec('PRAGMA foreign_keys=ON');
+        $competingStatus = null;
+        $first->atLedger = static function () use ($competing, &$competingStatus): void {
+            $competingStatus = $competing->execute([]);
+        };
+        $owner = new CommandTester(new MigrateCommand($first, $dir));
+        self::assertSame(0, $owner->execute([]), $owner->getDisplay());
+        self::assertSame(1, $competingStatus);
+        self::assertStringContainsString('locked', $competing->getDisplay());
+        self::assertSame(0, $competing->execute([]));
+        self::assertStringNotContainsString('Applied', $competing->getDisplay());
+        self::assertSame(1, $peer->query("SELECT COUNT(*) FROM uat_schema_migrations WHERE version='005_fixture'")->fetchColumn());
+    }
+
+    public function testUnexpectedCascadingDependencyCannotLoseExistingRowsDuringRebuild(): void
+    {
+        $db = $this->preWorkflowDatabase();
+        $db->exec("INSERT INTO cases(id) VALUES(1);
+            INSERT INTO uat_tracks(id,case_id,track_type) VALUES(1,1,'fact');
+            CREATE TABLE extra_records(track_id INTEGER REFERENCES uat_tracks(id) ON DELETE CASCADE);
+            INSERT INTO extra_records VALUES(1)");
+        $db = $this->connection();
+        $before = $this->dumpTables($db);
+        $command = new CommandTester(new MigrateCommand($db, $this->root.'/migrations'));
+        self::assertSame(1, $command->execute([]));
+        self::assertStringContainsString('extra_records', $command->getDisplay());
+        self::assertSame($before, $this->dumpTables($db));
     }
 
     public function testFutureVersionUsesForeignKeyActionsOnAlreadyRebuiltDatabase(): void
@@ -133,6 +211,16 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
         self::assertSame(0, proc_close($process), $output);
         self::assertStringContainsString('Applied 004_workflow', $output);
         self::assertSame(self::VERSIONS, $db->query('SELECT version FROM uat_schema_migrations ORDER BY version')->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    private function preWorkflowDatabase(): PDO
+    {
+        $db = $this->base();
+        foreach (array_slice(self::VERSIONS, 0, 3) as $version) {
+            $db->exec(file_get_contents($this->root.'/migrations/'.$version.'.sql'));
+            $db->prepare('INSERT OR IGNORE INTO uat_schema_migrations(version) VALUES(?)')->execute([$version]);
+        }
+        return $db;
     }
 
     private function connection(): PDO

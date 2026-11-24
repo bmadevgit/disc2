@@ -18,7 +18,8 @@ final class CommitteeRepository extends Repository
 
     public function setMembers(int $trackId): array
     {
-        return $this->rows('SELECT m.* FROM uat_committee_set_subjects m JOIN uat_committee_sets t ON t.id=m.committee_set_id WHERE t.track_id=?', [$trackId]);
+        return $this->rows('SELECT m.* FROM uat_committee_set_subjects m JOIN uat_committee_sets cs ON cs.id=m.committee_set_id
+            JOIN uat_tracks t ON t.id=cs.track_id JOIN uat_subjects s ON s.id=m.subject_id AND s.case_id=t.case_id WHERE t.id=?', [$trackId]);
     }
 
     public function addOrder(int $trackId, string $event, string $date, string $number, string $detail): void

@@ -6,6 +6,9 @@ namespace App\Infrastructure\Persistence\Repository;
 
 final class FindingRepository extends Repository
 {
+    private const CASE_FINDINGS = 'SELECT f.* FROM uat_subject_findings f JOIN uat_tracks t ON t.id=f.track_id
+        JOIN uat_subjects s ON s.id=f.subject_id AND s.case_id=t.case_id WHERE t.id=?';
+
     public function factCounts(int $trackId, int $caseId): array
     {
         return $this->row("SELECT COUNT(*) total, SUM(CASE WHEN finding='no_ground' THEN 1 ELSE 0 END) no_ground
@@ -15,12 +18,12 @@ final class FindingRepository extends Repository
 
     public function forTrack(int $trackId): array
     {
-        return $this->rows('SELECT * FROM uat_subject_findings WHERE track_id=?', [$trackId]);
+        return $this->rows(self::CASE_FINDINGS, [$trackId]);
     }
 
     public function forSubject(int $trackId, int $subjectId): ?array
     {
-        return $this->row('SELECT * FROM uat_subject_findings WHERE track_id=? AND subject_id=?', [$trackId, $subjectId]);
+        return $this->row(self::CASE_FINDINGS.' AND s.id=?', [$trackId, $subjectId]);
     }
 
     public function saveFact(int $trackId, int $subjectId, string $finding, string $severity, string $detail): void

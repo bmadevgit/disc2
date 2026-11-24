@@ -6,6 +6,7 @@ namespace App\Infrastructure\Persistence\Repository;
 
 use App\Domain\Workflow\DeadlineResult;
 use App\Domain\Workflow\TrackType;
+use DomainException;
 
 final class TrackRepository extends Repository
 {
@@ -34,6 +35,7 @@ final class TrackRepository extends Repository
     public function hasActiveDiscipline(int $caseId): bool
     {
         return (bool)$this->execute("SELECT 1 FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
+            JOIN uat_subjects s ON s.id=ts.subject_id AND s.case_id=t.case_id
             WHERE t.case_id=? AND t.track_type<>'fact' AND ts.ended_at IS NULL LIMIT 1", [$caseId])->fetchColumn();
     }
 
@@ -56,19 +58,22 @@ final class TrackRepository extends Repository
     public function history(int $caseId, int $subjectId): array
     {
         return $this->rows("SELECT t.*,ts.ended_at FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
+            JOIN uat_subjects s ON s.id=ts.subject_id AND s.case_id=t.case_id
             WHERE ts.subject_id=? AND t.case_id=? ORDER BY t.track_type<>'fact',t.id", [$subjectId, $caseId]);
     }
 
     public function members(int $trackId): array
     {
-        return $this->rows('SELECT * FROM uat_track_subjects WHERE track_id=?', [$trackId]);
+        return $this->rows('SELECT ts.* FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
+            JOIN uat_subjects s ON s.id=ts.subject_id AND s.case_id=t.case_id WHERE ts.track_id=?', [$trackId]);
     }
 
     public function membersWithResults(int $trackId): array
     {
         return $this->rows('SELECT s.*,ts.ended_at,f.finding,f.allegation_detail,f.offense_basis,
             f.committee_opinion,f.appointing_authority_opinion,f.allegation,f.recommend_serious
-            FROM uat_track_subjects ts JOIN uat_subjects s ON s.id=ts.subject_id
+            FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
+            JOIN uat_subjects s ON s.id=ts.subject_id AND s.case_id=t.case_id
             LEFT JOIN uat_subject_findings f ON f.track_id=ts.track_id AND f.subject_id=ts.subject_id
             WHERE ts.track_id=? AND s.active=1 ORDER BY s.sequence_no', [$trackId]);
     }
@@ -90,8 +95,17 @@ final class TrackRepository extends Repository
 
     public function addMember(int $trackId, int $subjectId, bool $allowExisting = false): void
     {
-        $this->execute('INSERT INTO uat_track_subjects(track_id,subject_id) VALUES(?,?)'
+        $insert = $this->execute('INSERT INTO uat_track_subjects(track_id,subject_id)
+            SELECT t.id,s.id FROM uat_tracks t JOIN uat_subjects s ON s.case_id=t.case_id WHERE t.id=? AND s.id=?'
             .($allowExisting ? ' ON CONFLICT(track_id,subject_id) DO NOTHING' : ''), [$trackId, $subjectId]);
+        if ($insert->rowCount() === 1) {
+            return;
+        }
+        if ($allowExisting && $this->row('SELECT 1 FROM uat_track_subjects ts JOIN uat_tracks t ON t.id=ts.track_id
+            JOIN uat_subjects s ON s.id=ts.subject_id AND s.case_id=t.case_id WHERE ts.track_id=? AND ts.subject_id=?', [$trackId, $subjectId])) {
+            return;
+        }
+        throw new DomainException('The subject and track must belong to the same case.');
     }
 
     public function saveDates(int $trackId, string $acknowledged, string $meeting, DeadlineResult $result): void

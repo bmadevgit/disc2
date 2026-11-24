@@ -20,6 +20,45 @@ use DateTimeImmutable;
 
 final class WorkflowRepositoryTest extends SyntheticDatabaseTestCase
 {
+    public function testMembershipsRequireMatchingCases(): void
+    {
+        $this->copiedFixture();
+        $db = (new ConnectionFactory($this->directory, 'test'))->open();
+        $tracks = new TrackRepository($db);
+        $db->exec('INSERT INTO cases(id) VALUES(2)');
+        $otherTrack = $tracks->ensureFirst(2, TrackType::Serious);
+        foreach ([false, true] as $allowExisting) {
+            try {
+                $tracks->addMember($otherTrack, 1, $allowExisting);
+                self::fail('A subject from a different case must be rejected.');
+            } catch (\DomainException) {
+                self::assertSame(0, $db->query('SELECT COUNT(*) FROM uat_track_subjects')->fetchColumn());
+            }
+        }
+    }
+
+    public function testInconsistentLegacyMembershipsAreExcludedFromCaseReads(): void
+    {
+        $this->copiedFixture();
+        $db = (new ConnectionFactory($this->directory, 'test'))->open();
+        $tracks = new TrackRepository($db);
+        $findings = new FindingRepository($db);
+        $db->exec('INSERT INTO cases(id) VALUES(2)');
+        $otherTrack = $tracks->ensureFirst(2, TrackType::Serious);
+        $db->prepare('INSERT INTO uat_track_subjects(track_id,subject_id) VALUES(?,1)')->execute([$otherTrack]);
+        $db->prepare("INSERT INTO uat_subject_findings(track_id,subject_id,finding) VALUES(?,1,'guilty')")->execute([$otherTrack]);
+        $db->prepare("INSERT INTO uat_committee_sets(track_id,set_code) VALUES(?,'legacy')")->execute([$otherTrack]);
+        $db->prepare('INSERT INTO uat_committee_set_subjects(committee_set_id,subject_id) VALUES(?,1)')->execute([$db->lastInsertId()]);
+        self::assertSame([], $tracks->membersWithResults($otherTrack));
+        self::assertSame([], $tracks->members($otherTrack));
+        self::assertSame([], $tracks->history(2, 1));
+        self::assertFalse($tracks->hasActiveDiscipline(2));
+        self::assertNull($tracks->currentDiscipline(2, 1));
+        self::assertSame([], $findings->forTrack($otherTrack));
+        self::assertNull($findings->forSubject($otherTrack, 1));
+        self::assertSame([], (new CommitteeRepository($db))->setMembers($otherTrack));
+    }
+
     public function testTransferRetainsPerPersonHistoryAndSelectedCommittee(): void
     {
         $this->copiedFixture();
