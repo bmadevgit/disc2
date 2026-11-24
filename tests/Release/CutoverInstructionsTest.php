@@ -41,8 +41,9 @@ final class CutoverInstructionsTest extends TestCase
             'Use the SQLite CLI `.backup` to take a fresh protected online backup',
             'Open it independently and verify the same audit watermark', 'PRAGMA integrity_check', 'PRAGMA foreign_key_check',
             "Record the backup's location and SHA-256", 'Pre-switch gate', 'Configure IIS application',
-            'Set `APP_ENV=prod`', 'Configure `super_admin_ids`, `bma_secret_key` and an absolute `database_path`',
-            'set `bma_endpoint`', '-ApplyMigrations', 'Verify local Admin',
+            'Set `APP_ENV=prod`', 'the same `DISC2_CONFIG_FILE` in FastCGI and the operator CLI',
+            'Configure `super_admin_ids`, `bma_secret_key` and an absolute `database_path`', 'set `bma_endpoint`',
+            '-ApplyMigrations', 'Verify local Admin',
         ]];
     }
 
