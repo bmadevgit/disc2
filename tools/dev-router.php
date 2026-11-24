@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 $public = dirname(__DIR__).'/public';
 $path = rawurldecode(explode('?', $_SERVER['REQUEST_URI'], 2)[0]);
-if (preg_match('~^/assets/(?:login\.(?:css|js)|uat\.css|workflow\.js)$~D', $path)) {
+if (preg_match('~^/assets/(?:login\.(?:css|js)|uat\.css|workflow\.js|flatpickr-4\.6\.13(?:\.min\.(?:css|js)|-th\.js))$~D', $path)) {
     $asset = realpath($public.$path);
     if ($asset !== false && $asset === realpath($public).DIRECTORY_SEPARATOR.'assets'.DIRECTORY_SEPARATOR.basename($path) && is_file($asset)) {
         return false;

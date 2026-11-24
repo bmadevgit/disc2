@@ -33,11 +33,11 @@ final class WorkflowFields
         return filter_var($value, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 0;
     }
 
-    public static function days(array $input, string $key, string $default = ''): int
+    public static function days(array $input, string $key, string $default = '', string $message = 'กรุณาระบุจำนวนวันเป็นจำนวนเต็มบวก'): int
     {
         $days = filter_var(self::text($input, $key, $default), FILTER_VALIDATE_INT, ['options'=>['min_range'=>1, 'max_range'=>365000]]);
         if ($days === false) {
-            throw new WriteFailure('กรุณาระบุจำนวนวันเป็นจำนวนเต็มบวก');
+            throw new WriteFailure($message);
         }
         return $days;
     }

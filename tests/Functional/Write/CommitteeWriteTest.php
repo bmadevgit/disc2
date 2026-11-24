@@ -93,6 +93,29 @@ final class CommitteeWriteTest extends WriteTestCase
         self::assertCount(1, $this->rows("SELECT * FROM uat_audit_log WHERE action='escalate_discipline'"));
     }
 
+    public function testOnlyRecordedAppointmentsCanReceiveAnEscalation(): void
+    {
+        $this->login('demo-owner');
+        $this->db->exec("INSERT INTO uat_tracks(id,case_id,track_type) VALUES(1,1,'discipline_nonserious'),(2,1,'discipline_serious');
+            INSERT INTO uat_track_subjects(track_id,subject_id) VALUES(1,1);
+            INSERT INTO uat_subject_findings(track_id,subject_id,recommend_serious,committee_opinion) VALUES(1,1,1,'Opinion');
+            INSERT INTO uat_committee_orders(track_id,event_type,order_number) VALUES(2,'appoint','Original')");
+        $url = '/discipline_results.php?case_id=1&type=discipline_nonserious&track_id=1';
+        $form = $this->client->request('GET', $url)->filterXPath('//form[input[@value="escalate_discipline"]]')->form()->getPhpValues();
+        $this->db->exec("DELETE FROM uat_committee_orders WHERE track_id=2;
+            INSERT INTO uat_committee_orders(track_id,event_type,order_number) VALUES(2,'amend_order','Amendment only')");
+        $page = $this->client->request('GET', $url);
+        // Even a revision obtained when no order exists cannot authorize the transfer.
+        $revision = $page->filter('input[name="target_revision[2]"]');
+        $values = ['subject_id'=>1,'track_id'=>1,'target_track'=>2,'effective_date'=>'2024-04-01','reference'=>'Transfer'];
+        $before = $this->membershipState();
+        $presented = $revision->count() ? $revision->attr('value') : $form['target_revision'][2];
+        $this->post(['target_revision'=>[2=>$presented]] + $values + $form, 409);
+        self::assertSame($before, $this->membershipState());
+        self::assertCount(0, $page->filter('select[name=target_track] option[value="2"]'));
+        self::assertCount(0, $revision);
+    }
+
     public function testAppointmentSetAndMembersUseCurrentSchemaAndRollBackTogether(): void
     {
         $this->login('demo-owner');

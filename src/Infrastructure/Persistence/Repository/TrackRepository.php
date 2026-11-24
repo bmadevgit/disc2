@@ -31,7 +31,7 @@ final class TrackRepository extends Repository
     {
         $sql = "SELECT t.*,o.id appointment_id,o.order_number appointment,o.order_date,o.detail appointment_detail,
             MIN(cs.id) appointed_set_id,COUNT(cs.id) appointed_set_count FROM uat_tracks t
-            LEFT JOIN uat_committee_orders o ON o.id=(SELECT MAX(id) FROM uat_committee_orders
+            JOIN uat_committee_orders o ON o.id=(SELECT MAX(id) FROM uat_committee_orders
                 WHERE track_id=t.id AND event_type='appoint')
             LEFT JOIN uat_committee_sets cs ON cs.track_id=t.id AND cs.active=1
                 AND cs.order_number=o.order_number AND cs.order_date=o.order_date

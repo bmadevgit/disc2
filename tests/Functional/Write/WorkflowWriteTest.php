@@ -6,6 +6,8 @@ namespace App\Tests\Functional\Write;
 
 use Browser;
 use PDO;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Clock\{Clock, MockClock};
 
 final class WorkflowWriteTest extends WriteTestCase
 {
@@ -78,6 +80,63 @@ final class WorkflowWriteTest extends WriteTestCase
         $this->post($track + ['first_meeting_date'=>'2024-02-31'], 422);
         $this->post(['action'=>'add_extension','case_id'=>1,'track_id'=>$track['track_id'],'requested_days'=>2], 302);
         $this->post($track, 422);
+    }
+
+    public function testStaleFactFormPreservesLaterSubjectsAndTheirCaseStage(): void
+    {
+        $this->login('demo-owner');
+        $this->post(['action'=>'save_fact','case_id'=>1,'finding'=>[1=>'no_ground',2=>'no_ground']], 302);
+        $owner = $this->client;
+        $stale = $owner->request('GET', '/case.php?id=1&page=2')->filter('form[data-deadline=fact]')->form()->getPhpValues();
+
+        $this->client = new KernelBrowser($owner->getKernel());
+        $this->client->disableReboot();
+        $this->login('demo-admin');
+        self::assertNotSame($owner->getCookieJar()->all()[0]->getValue(), $this->client->getCookieJar()->all()[0]->getValue());
+        $this->post(['action'=>'save_page1','case_id'=>1,'case_number'=>'DEMO-001','subjects'=>[2=>['first'=>'Third']]], 302);
+        $this->post(['action'=>'save_fact','case_id'=>1,'finding'=>[1=>'no_ground',2=>'no_ground',3=>'no_ground'],
+            'finding_detail'=>[3=>'Later finding']], 302);
+        $before = $this->rows('SELECT * FROM uat_subject_findings ORDER BY subject_id');
+        $stage = $this->rows('SELECT stage,closed_at FROM uat_case_meta WHERE case_id=1');
+        self::assertSame('closed', $stage[0]['stage']);
+        $this->client = $owner;
+        $this->post($stale, 302);
+        self::assertSame($before, $this->rows('SELECT * FROM uat_subject_findings ORDER BY subject_id'));
+        self::assertSame($stage, $this->rows('SELECT stage,closed_at FROM uat_case_meta WHERE case_id=1'));
+        // A later active subject without a finding still prevents closure.
+        $this->db->exec("INSERT INTO uat_subjects(case_id,sequence_no) VALUES(1,4)");
+        $this->post($stale, 302);
+        self::assertSame('fact_finding', $this->rows('SELECT stage FROM uat_case_meta')[0]['stage']);
+    }
+
+    public function testClosureDateUsesBangkokAtTheUtcDayBoundary(): void
+    {
+        $original = Clock::get();
+        $clock = new MockClock('2024-03-31 16:59:59 UTC');
+        Clock::set($clock);
+        try {
+            $this->login('demo-owner');
+            $form = ['action'=>'save_fact','case_id'=>1,'finding'=>[1=>'no_ground',2=>'no_ground']];
+            foreach (['2024-03-31','2024-04-01'] as $expected) {
+                $this->post($form, 302);
+                self::assertSame($expected, $this->rows('SELECT closed_at FROM uat_case_meta')[0]['closed_at']);
+                $clock->sleep(1);
+            }
+        } finally {
+            Clock::set($original);
+        }
+    }
+
+    public function testInvalidExtensionDaysUsesTheExtensionMessage(): void
+    {
+        $this->login('demo-owner');
+        $this->db->exec("INSERT INTO uat_tracks(case_id,track_type,due_date) VALUES(1,'fact','2024-01-31')");
+        foreach (['',0,-1,'1.5',365001] as $days) {
+            $response = $this->post(['action'=>'add_extension','case_id'=>1,'track_id'=>1,'requested_days'=>$days], 422);
+            self::assertSame('กรุณาระบุจำนวนวันที่ขยายเป็นจำนวนเต็มบวก', $response->getContent());
+        }
+        self::assertSame([], $this->rows('SELECT * FROM uat_extensions'));
+        self::assertSame([], $this->rows('SELECT * FROM uat_audit_log'));
     }
 
     public function testUnscheduledConversionAndUnavailablePreview(): void

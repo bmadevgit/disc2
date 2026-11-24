@@ -48,11 +48,13 @@ final readonly class EscalateDiscipline
                 if (!$targetId) {
                     throw new WriteFailure('กรุณาเลือกชุด คกก. ร้ายแรง');
                 }
-                $appointment = $this->tracks->seriousAppointments($caseId, $targetId)[0]
-                    ?? throw new WriteFailure('ไม่พบกระบวนการสอบสวน', 404);
+                $appointment = $this->tracks->seriousAppointments($caseId, $targetId)[0] ?? null;
+                if (!$appointment && !$this->tracks->find($caseId, TrackType::Serious, $targetId)) {
+                    throw new WriteFailure('ไม่พบกระบวนการสอบสวน', 404);
+                }
                 $revisions = $input['target_revision'] ?? [];
                 $revision = is_array($revisions) ? ($revisions[$targetId] ?? null) : null;
-                if (!is_string($revision) || !hash_equals($appointment['revision'], $revision)
+                if (!$appointment || !is_string($revision) || !hash_equals($appointment['revision'], $revision)
                     || $appointment['appointed_set_count'] > 1) {
                     throw new WriteFailure('คำสั่งแต่งตั้งมีการเปลี่ยนแปลง กรุณาเปิดหน้าเลือกชุด คกก. อีกครั้ง', 409);
                 }

@@ -472,3 +472,6 @@ th {
     width: auto;
     margin-right: 6px
 }
+
+.flatpickr-current-month input.cur-year[hidden] { display: none; }
+.flatpickr-current-month .numInputWrapper output { display: block; padding-left: .5ch; text-align: left; }

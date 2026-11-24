@@ -40,4 +40,34 @@ Must-Fail { Assert-Disc2AncestorRights @($chain[0], $chain[1], @{Path='D:\';Flag
 Must-Fail { Assert-Disc2AncestorRights @(@{Path='D:\';Flags=@()}) }
 $rootRights = @(Get-Disc2AccessFlags @(' R  D:\','       FILE_GENERIC_READ',' RW D:\unrelated','       FILE_ALL_ACCESS') 'D:\')
 if ($rootRights.Count -ne 1 -or $rootRights[0] -ne 'FILE_GENERIC_READ') { throw 'Volume root rights were not isolated' }
-Write-Output 'Binding and storage policy fixtures passed.'
+$fixture = Join-Path ([IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString())
+$cfg = Join-Path $fixture 'config'; $data = Join-Path $fixture 'data'; $recovery = Join-Path $fixture 'recovery'
+try {
+    foreach ($dir in $cfg,$data,$recovery) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $file = Join-Path $cfg 'ai.php'; $copy = Join-Path $recovery 'ai.php'
+    if (Resolve-Disc2AiFiles '' '' $file) { throw 'Absent default unexpectedly enabled AI.' }
+    Must-Fail { Resolve-Disc2AiFiles $file '' $file }
+    Set-Content -LiteralPath $file -Value 'synthetic' -NoNewline
+    Must-Fail { Resolve-Disc2AiFiles '' '' $file }
+    Copy-Item -LiteralPath $file -Destination $copy
+    $files = Resolve-Disc2AiFiles $file $copy $file
+    if ($files.Config -ne $file -or $files.Recovery -ne $copy) { throw 'Wrong AI file selection.' }
+    Must-Fail { Resolve-Disc2AiFiles $file $file $file }
+    $seen = [Collections.Generic.List[string]]::new()
+    Assert-Disc2ConfigAcl $file $data $write { param($path) $seen.Add($path); $read }
+    $entry = Get-Item -LiteralPath $file
+    while ($entry) {
+        if (!$seen.Contains($entry.FullName)) { throw 'Skipped configuration file or ancestor.' }
+        $entry = if ($entry -is [IO.FileInfo]) { $entry.Directory } else { $entry.Parent }
+    }
+    foreach ($unsafePath in $file,$cfg,$fixture) {
+        Must-Fail { Assert-Disc2ConfigAcl $file $data $write { param($path)
+            if ($path -eq $unsafePath) { return $read + 'WRITE_DAC' }; $read
+        } }
+    }
+    Set-Content -LiteralPath $copy -Value 'wrong'
+    Must-Fail { Resolve-Disc2AiFiles $file $copy $file }
+} finally {
+    if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
+}
+Write-Output 'Binding, configuration recovery and storage policy fixtures passed.'

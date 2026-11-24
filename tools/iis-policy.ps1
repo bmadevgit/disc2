@@ -71,3 +71,33 @@ function Assert-Disc2AncestorRights([array]$Chain) {
         if (!$verified -or $canReplace) { throw "Configuration ancestor has replacement rights or unverified ACLs: $($ancestor.Path)" }
     }
 }
+
+function Resolve-Disc2AiFiles([string]$Configured, [string]$Recovery, [string]$DefaultPath) {
+    $selected = if ($Configured) { $Configured } else { $DefaultPath }
+    if (!$Configured -and !(Test-Path -LiteralPath $selected) -and !$Recovery) { return }
+    if (![IO.Path]::IsPathRooted($selected) -or !$Recovery -or ![IO.Path]::IsPathRooted($Recovery)) {
+        throw 'Select the absolute AI config and its protected recovery copy.'
+    }
+    $source = Get-Item -LiteralPath $selected -Force -ErrorAction Stop
+    $backup = Get-Item -LiteralPath $Recovery -Force -ErrorAction Stop
+    if ($source -isnot [IO.FileInfo] -or $backup -isnot [IO.FileInfo] -or $source.FullName -eq $backup.FullName -or $backup.LinkType -eq 'HardLink') {
+        throw 'Use an independent recovery file for the AI configuration.'
+    }
+    if ((Get-FileHash -LiteralPath $source.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $backup.FullName -Algorithm SHA256).Hash) {
+        throw 'The AI configuration and its recovery copy differ.'
+    }
+    return [pscustomobject]@{Config=$source.FullName; Recovery=$backup.FullName}
+}
+
+function Assert-Disc2ConfigAcl([string]$File, [string]$DatabaseDir, [array]$DatabaseFlags, [scriptblock]$ReadFlags) {
+    $directory = (Get-Item -LiteralPath $File).Directory
+    $fileRights = @(& $ReadFlags $File)
+    $dirRights = @(& $ReadFlags $directory.FullName)
+    Assert-Disc2StorageRights $directory.FullName $DatabaseDir $fileRights $dirRights $DatabaseFlags
+    $ancestor = $directory.Parent
+    $chain = @(while ($ancestor) {
+        [pscustomobject]@{ Path=$ancestor.FullName; Flags=@(& $ReadFlags $ancestor.FullName) }
+        $ancestor = $ancestor.Parent
+    })
+    if ($chain) { Assert-Disc2AncestorRights $chain }
+}

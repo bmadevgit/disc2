@@ -41,13 +41,18 @@ try {
             throw new RuntimeException('SQLite integrity or foreign-key check failed.');
         }
     }
-    $tables = static fn (PDO $db): array => $db->query("SELECT name,sql FROM sqlite_schema WHERE type='table' ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
-    $schema = $tables($frozen);
-    if (!$schema || $tables($old) !== $schema) {
-        throw new RuntimeException('Prior release sees a different table schema.');
+    // Root pages are physical allocation details. Internal autoindexes have NULL SQL,
+    // and sqlite_sequence is a real table whose allocation history must also match.
+    $objects = static fn (PDO $db): array => $db->query(
+        'SELECT type,name,tbl_name,sql FROM main.sqlite_schema ORDER BY type,name'
+    )->fetchAll(PDO::FETCH_ASSOC);
+    $schema = $objects($frozen);
+    if (!$schema || $objects($old) !== $schema) {
+        throw new RuntimeException('Prior release sees a different SQLite schema.');
     }
+    $tables = array_column(array_filter($schema, static fn ($object) => $object['type'] === 'table'), 'name');
     $quote = static fn (string $id): string => '"'.str_replace('"', '""', $id).'"';
-    foreach (array_keys($schema) as $table) {
+    foreach ($tables as $table) {
         $name = $quote($table);
         $columns = $frozen->query("PRAGMA table_info($name)")->fetchAll(PDO::FETCH_ASSOC);
         $order = implode(', ', array_map(static fn ($c) => $quote($c['name']).' COLLATE BINARY', $columns));
@@ -63,7 +68,7 @@ try {
     }
     $audits = $old->prepare('SELECT count(*) FROM uat_audit_log WHERE id > ?');
     $audits->execute([(int)$argv[3]]);
-    echo count($schema).' tables matched through the prior release, including '.$audits->fetchColumn()." post-cutover audits.\n";
+    echo count($schema).' schema objects and '.count($tables).' tables matched through the prior release, including '.$audits->fetchColumn()." post-cutover audits.\n";
     $complete = true;
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage()."\n");

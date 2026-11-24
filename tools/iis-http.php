@@ -44,7 +44,7 @@ try {
         }
         return $body;
     };
-    foreach (['login.css','login.js','uat.css','workflow.js'] as $asset) {
+    foreach (['login.css','login.js','uat.css','workflow.js','flatpickr-4.6.13.min.css','flatpickr-4.6.13.min.js','flatpickr-4.6.13-th.js'] as $asset) {
         if (!hash_equals($manifest['files']['public/assets/'.$asset], hash('sha256', $request('assets/'.$asset, [200])))) {
             throw new RuntimeException("Static asset mismatch: $asset");
         }

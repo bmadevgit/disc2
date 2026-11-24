@@ -62,15 +62,17 @@ final class ExposureTest extends TestCase
             }
         }
         sort($entries);
-        self::assertSame(['assets/login.css','assets/login.js','assets/uat.css','assets/workflow.js','index.php','web.config'], $entries);
+        self::assertSame(['assets/flatpickr-4.6.13-th.js','assets/flatpickr-4.6.13.min.css','assets/flatpickr-4.6.13.min.js',
+            'assets/login.css','assets/login.js','assets/uat.css','assets/workflow.js','index.php','web.config'], $entries);
         // These are the complete runtime imports, including indirect expressions.
         $imports = [
             'bin/console'=>["dirname(__DIR__).'/vendor/autoload_runtime.php'"],
             'public/index.php'=>["dirname(__DIR__).'/vendor/autoload_runtime.php'"],
             'src/Application/Auth/AuthSettings.php'=>['$configFile'],
+            'src/Security/RequestTrustSettings.php'=>['$file'],
             'src/Application/Query/DashboardAssistant.php'=>['$this->configFile'],
             'src/Infrastructure/Persistence/ConnectionFactory.php'=>['$this->configFile'],
-            'tools/iis-preflight.php'=>['$config', "\$root.'/vendor/autoload.php'"],
+            'tools/iis-preflight.php'=>["\$root.'/vendor/autoload.php'", '$config'],
             'tools/release-cli.php'=>["__DIR__.'/release-package.php'"],
             'tools/rollback-proof.php'=>['$entry'],
             'tools/dev-router.php'=>["dirname(__DIR__).'/public/index.php'"],

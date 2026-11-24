@@ -9,11 +9,13 @@ use App\Domain\Workflow\TrackType;
 use App\Form\WorkflowFields as Fields;
 use App\Infrastructure\Persistence\Repository\{CaseRepository, FindingRepository, SubjectRepository, TrackRepository};
 use App\Security\User;
+use Symfony\Component\Clock\ClockInterface;
 
 final readonly class SaveFinding
 {
     public function __construct(private WorkflowWrite $write, private SaveTrack $schedule, private TrackRepository $tracks,
-        private SubjectRepository $subjects, private FindingRepository $findings, private CaseRepository $cases, private CaseAudit $audit)
+        private SubjectRepository $subjects, private FindingRepository $findings, private CaseRepository $cases, private CaseAudit $audit,
+        private ClockInterface $clock)
     {
     }
 
@@ -26,18 +28,20 @@ final readonly class SaveFinding
             $severity = Fields::subjectMap($input, 'severity');
             $detail = Fields::subjectMap($input, 'finding_detail');
             $subjects = array_column($this->subjects->activeForCase($caseId), 'id', 'id');
-            if (array_diff_key($results + $severity + $detail, $subjects)) {
+            $submitted = $results + $severity + $detail;
+            if (array_diff_key($submitted, $subjects)) {
                 throw new WriteFailure('ไม่พบผู้ถูกกล่าวหาในสำนวน', 404);
             }
-            foreach ($subjects as $sid) {
+            foreach (array_keys($submitted) as $sid) {
                 $this->tracks->addMember($id, $sid, true);
                 $this->findings->saveFact($id, $sid, Fields::text($results, (string)$sid),
                     Fields::text($severity, (string)$sid), Fields::text($detail, (string)$sid));
             }
             $counts = $this->findings->factCounts($id, $caseId);
-            $closed = $counts['total'] > 0 && $counts['total'] === $counts['no_ground'];
+            $closed = $subjects !== [] && count($subjects) === $counts['no_ground'];
             $stage = $this->tracks->hasActiveDiscipline($caseId) ? 'discipline' : ($closed ? 'closed' : 'fact_finding');
-            $this->cases->setStage($caseId, $stage, $stage === 'closed' ? date('Y-m-d') : null);
+            $closedAt = $stage === 'closed' ? $this->clock->withTimeZone('Asia/Bangkok')->now()->format('Y-m-d') : null;
+            $this->cases->setStage($caseId, $stage, $closedAt);
             $this->audit->record($caseId, 'save_fact_finding');
         });
     }

@@ -4,3 +4,6 @@
 *.json text eol=lf
 *.ps1 text eol=crlf
 *.sh text eol=lf
+# Preserve upstream distribution and license bytes on Windows and Linux.
+public/assets/flatpickr-4.6.13* -text
+tools/licenses/flatpickr-LICENSE.txt -text

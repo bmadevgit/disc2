@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // CLI-only companion to the IIS smoke test. Never print the configuration or credentials.
-if (PHP_SAPI !== 'cli' || $argc !== 5 || !in_array($argv[4], ['production', 'staging'], true)) {
+if (PHP_SAPI !== 'cli' || !in_array($argc, [5,7], true) || !in_array($argv[4], ['production', 'staging'], true)) {
     exit(1);
 }
 try {
@@ -17,6 +17,7 @@ try {
             throw new RuntimeException("Missing CLI extension $ext");
         }
     }
+    require $root.'/vendor/autoload.php';
     $config = realpath(getenv('DISC2_CONFIG_FILE') ?: 'C:/inetpub/private/disc2-config.php');
     $expected = realpath($argv[1]);
     $database = realpath($argv[2]);
@@ -34,8 +35,35 @@ try {
     if ($equal(substr($configDir, 0, strlen($databaseDir)), $databaseDir) || $equal(substr($databaseDir, 0, strlen($configDir)), $configDir)) {
         throw new RuntimeException('Configuration and database require separate private directory trees.');
     }
+    $explicitAi = getenv('DISC2_AI_CONFIG_FILE');
+    $selectedAi = $explicitAi ?: 'C:/inetpub/private/disc2-ai.php';
+    // The conventional file is optional. An explicit path, an existing default,
+    // or a supplied recovery pair must resolve and agree before any migration.
+    if ($explicitAi || file_exists($selectedAi) || $argc === 7) {
+        $ai = realpath($selectedAi);
+        $expectedAi = isset($argv[5]) ? realpath($argv[5]) : false;
+        $recovery = isset($argv[6]) ? realpath($argv[6]) : false;
+        if (!$ai || !$expectedAi || !$recovery || !Symfony\Component\Filesystem\Path::isAbsolute($selectedAi)
+            || !Symfony\Component\Filesystem\Path::isAbsolute($argv[5]) || !Symfony\Component\Filesystem\Path::isAbsolute($argv[6])
+            || !$equal($ai, $expectedAi) || $equal($ai, $recovery)) {
+            throw new RuntimeException('Select the configured AI file and its independent recovery copy.');
+        }
+        foreach ([$ai, $recovery] as $file) {
+            $directory = dirname($file).DIRECTORY_SEPARATOR;
+            if (!is_file($file) || !is_readable($file) || $equal(substr($file, 0, strlen($root) + 1), $root.DIRECTORY_SEPARATOR)
+                || $equal(substr($directory, 0, strlen($databaseDir)), $databaseDir)
+                || $equal(substr($databaseDir, 0, strlen($directory)), $directory)) {
+                throw new RuntimeException('Keep the AI file and recovery copy in private configuration storage.');
+            }
+        }
+        $sourceStat = stat($ai);
+        $copyStat = stat($recovery);
+        if (!$sourceStat || !$copyStat || ($sourceStat['ino'] && $sourceStat['dev'] === $copyStat['dev'] && $sourceStat['ino'] === $copyStat['ino'])
+            || !hash_equals(hash_file('sha256', $ai), hash_file('sha256', $recovery))) {
+            throw new RuntimeException('The AI configuration needs an independent, byte-identical recovery copy.');
+        }
+    }
     $settings = require $config;
-    require $root.'/vendor/autoload.php';
     $auth = new App\Application\Auth\AuthSettings('prod', $config);
     $prodHost = parse_url(App\Application\Auth\AuthSettings::BMA_DEFAULT_ENDPOINT, PHP_URL_HOST);
     if ($auth->bmaEndpoint() !== $argv[3] || ($argv[4] === 'staging' && strcasecmp(rtrim(parse_url($auth->bmaEndpoint(), PHP_URL_HOST), '.'), $prodHost) === 0)) {

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Application\Query;
 
 use App\Domain\Access\CaseScope;
+use App\Domain\Workflow\CalendarDate;
 use App\Infrastructure\Persistence\Repository\CaseRepository;
 use App\Infrastructure\Persistence\Repository\TrackRepository;
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 
 final readonly class DashboardQuery
 {
@@ -21,9 +23,14 @@ final readonly class DashboardQuery
         $items = [];
         if ($scope->canAdminister()) {
             $zone = new DateTimeZone('Asia/Bangkok');
-            $today = new DateTimeImmutable('today', $zone);
+            $today = CalendarDate::parse((new DateTimeImmutable('today', $zone))->format('Y-m-d'));
             foreach ($this->tracks->deadlines() as $track) {
-                $left = (int)$today->diff(new DateTimeImmutable($track['effective_due'], $zone))->format('%r%a');
+                try {
+                    $due = CalendarDate::parse($track['effective_due']);
+                } catch (InvalidArgumentException) {
+                    continue;
+                }
+                $left = (int)$today->diff($due)->format('%r%a');
                 if ($left <= 30) {
                     $items[] = $track + ['left'=>$left];
                 }

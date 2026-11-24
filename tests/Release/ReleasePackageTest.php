@@ -66,6 +66,20 @@ final class ReleasePackageTest extends TestCase
         self::assertTrue(\Disc2Release::allowed('vendor/twig/twig/src/Node/Expression/Test/DefinedTest.php', $packages));
     }
 
+    public function testBundledPickerMatchesPinnedUpstreamDistribution(): void
+    {
+        $hashes = [
+            'public/assets/flatpickr-4.6.13.min.css'=>'1b34a42552c96f10e4dfaaa4a367276b03868aacff63c1ac42ffe331352bc754',
+            'public/assets/flatpickr-4.6.13.min.js'=>'1eeab1cb779471a0b0aaa93dd91c2eb1aa537d696f01ab05ea9dabc55e8525a1',
+            'public/assets/flatpickr-4.6.13-th.js'=>'d720863a64b19a01fa5c3e7d1004bd89accfdaad5ccff7f3b2d146ef64428df5',
+            'tools/licenses/flatpickr-LICENSE.txt'=>'5fd57afc3905651175947ae44818e91ffcf5b605e4c88fac42d9700243bd9095',
+        ];
+        foreach ($hashes as $entry => $digest) {
+            self::assertContains($entry, \Disc2Release::REQUIRED);
+            self::assertSame($digest, hash_file('sha256', dirname(__DIR__,2).'/'.$entry));
+        }
+    }
+
     public function testMissingRuntimeEntryFails(): void
     {
         $files = $this->stage();
@@ -99,12 +113,72 @@ final class ReleasePackageTest extends TestCase
         [$status, $message] = $run();
         self::assertSame(0, $status, $message);
         self::assertStringContainsString('1 post-cutover audits', $message);
+        foreach ([
+            'INDEX ix_audit_detail ON uat_audit_log(detail)' => 'INDEX ix_audit_detail',
+            'VIEW audit_view AS SELECT detail FROM uat_audit_log' => 'VIEW audit_view',
+            "TRIGGER audit_trigger AFTER INSERT ON uat_audit_log BEGIN SELECT 1; END" => 'TRIGGER audit_trigger',
+        ] as $definition => $object) {
+            $db->exec('CREATE '.$definition);
+            [$status, $message] = $run();
+            self::assertSame(1, $status, $object);
+            self::assertStringContainsString('schema', $message);
+            $db->exec('DROP '.$object);
+        }
         $db->exec("UPDATE uat_audit_log SET detail='different' WHERE id=2");
         [$status, $message] = $run();
         self::assertSame(1, $status);
         self::assertStringContainsString('Frozen records differ', $message);
         file_put_contents($this->temp.'/db.php', '<?php exit("Missing legacy database");');
         self::assertSame(1, $run()[0]);
+    }
+
+    public function testOptionalAiConfigurationPreflightVerifiesSelectedPathAndRecoveryCopy(): void
+    {
+        $root = dirname(__DIR__, 2);
+        foreach (['release/tools','release/vendor','private','data','recovery'] as $dir) {
+            mkdir($this->temp.'/'.$dir, 0700, true);
+        }
+        $release = $this->temp.'/release';
+        copy($root.'/tools/iis-preflight.php', $release.'/tools/iis-preflight.php');
+        file_put_contents($release.'/release-manifest.json', '{"php_min":"8.2","extensions":[]}');
+        file_put_contents($release.'/vendor/autoload.php', '<?php require '.var_export($root.'/vendor/autoload.php', true).';');
+        $config = $this->temp.'/private/main.php';
+        $database = $this->temp.'/data/cases.db';
+        (new \PDO('sqlite:'.$database))->exec('CREATE TABLE cases(id INTEGER PRIMARY KEY)');
+        $endpoint = 'https://directory.example/synthetic';
+        file_put_contents($config, '<?php return '.var_export(['database_path'=>$database, 'bma_endpoint'=>$endpoint,
+            'bma_secret_key'=>'fixture', 'super_admin_ids'=>[]], true).';');
+        $run = function (string $selected = '', string ...$args) use ($release,$config,$database,$endpoint): int {
+            $env = array_merge(getenv(), ['APP_ENV'=>'prod','APP_DEBUG'=>'0','APP_SECRET'=>'fixture','DISC2_CONFIG_FILE'=>$config,
+                'DISC2_AI_CONFIG_FILE'=>$selected]);
+            $proc = proc_open([PHP_BINARY, $release.'/tools/iis-preflight.php', $config, $database, $endpoint, 'staging', ...$args],
+                [1=>['pipe','w'],2=>['redirect',1]], $pipes, $this->temp, $env);
+            stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+            return proc_close($proc);
+        };
+        $ai = $this->temp.'/private/assistant.php';
+        $backup = $this->temp.'/recovery/assistant.php';
+        self::assertSame(0, $run(), 'AI disabled');
+        self::assertSame(1, $run($ai), 'explicit missing file');
+        file_put_contents($ai, "<?php return ['base_url'=>'https://ai.example','api_key'=>'synthetic','model'=>'local'];");
+        copy($ai, $backup);
+        self::assertSame(1, $run($ai), 'missing recovery evidence');
+        self::assertSame(0, $run($ai, $ai, $backup), 'selected file and independent matching copy');
+        self::assertSame(1, $run('private/assistant.php', $ai, $backup), 'relative selected file');
+        self::assertSame(1, $run($ai, $backup, $ai), 'selected file differs from CLI');
+        self::assertSame(1, $run($ai, $ai, $ai), 'same file');
+        $alias = $this->temp.'/recovery/same-inode.php';
+        if (link($ai, $alias)) {
+            self::assertSame(1, $run($ai, $ai, $alias), 'hard link to live file');
+        }
+        foreach ([$release.'/assistant.php',$this->temp.'/data/assistant.php'] as $unsafe) {
+            copy($ai, $unsafe);
+            self::assertSame(1, $run($unsafe, $unsafe, $backup), 'unsafe selected location');
+            self::assertSame(1, $run($ai, $ai, $unsafe), 'unsafe copy location');
+        }
+        file_put_contents($backup, '<?php return [];');
+        self::assertSame(1, $run($ai, $ai, $backup), 'different contents');
     }
 
     private function stage(): array

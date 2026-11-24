@@ -259,6 +259,33 @@ final class ReadPagesTest extends SyntheticDatabaseTestCase
         }
     }
 
+    public function testMalformedBaseAndLatestExtensionAreIsolatedOnDashboard(): void
+    {
+        $this->actor('admin');
+        $this->db->exec("UPDATE uat_tracks SET due_date='missing-date' WHERE id=1;
+            INSERT INTO uat_extensions(track_id,sequence_no,new_due_date) VALUES(2,2,'2024-02-31');
+            INSERT INTO uat_tracks(case_id,track_type,due_date) VALUES(2,'fact','2024-02-29')");
+        $page = $this->page('/admin.php');
+        self::assertSame(['3','1','2','2'], $page->filter('.metric b')->each(fn ($cell) => $cell->text()));
+        self::assertSame(['2024-02-29'], $page->filter('tbody tr td:nth-child(3)')->each(fn ($cell) => $cell->text()));
+    }
+
+    public function testCalendarDistributionUsesOnlyMountedLocalAssets(): void
+    {
+        $this->actor('case_owner');
+        $mount = '/exam/disc2';
+        $this->client->setServerParameter('SCRIPT_FILENAME', 'C:/inetpub/wwwroot/exam/disc2/public/index.php');
+        $this->client->setServerParameter('SCRIPT_NAME', $mount.'/index.php');
+        $page = $this->page($mount.'/case.php?id=1&page=2');
+        $resources = $page->filter('link[rel=stylesheet],script[src]')->each(fn ($tag) => $tag->attr('href') ?? $tag->attr('src'));
+        foreach ($resources as $url) {
+            self::assertStringStartsWith($mount.'/assets/', $url);
+        }
+        foreach (['flatpickr-4.6.13.min.css', 'flatpickr-4.6.13.min.js', 'flatpickr-4.6.13-th.js'] as $asset) {
+            self::assertContains($mount.'/assets/'.$asset, $resources);
+        }
+    }
+
     public function testInvalidCaseIdentifiersAndLegacyTabDefaults(): void
     {
         $this->actor('admin');

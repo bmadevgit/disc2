@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory)][string]$ExpectedBmaEndpoint,
     [switch]$Production,
     [string]$ConfigFile = 'C:\inetpub\private\disc2-config.php',
+    [string]$AiConfigBackup,
     [string]$Php = 'php.exe',
     [string]$AccessChk = 'accesschk.exe',
     [switch]$ApplyMigrations
@@ -77,8 +78,33 @@ foreach ($dir in 'var\cache','var\log','var\sessions') { Assert-Rights (Join-Pat
 $configPath = (Get-Item -LiteralPath $ConfigFile).FullName
 $dbPath = (Get-Item -LiteralPath $Database).FullName
 $dbDir = Split-Path -Parent $dbPath
-$cfgDir = Split-Path -Parent $configPath
-foreach ($path in $configPath,$dbPath) {
+# FastCGI variables override pool and machine values. Compare the actual selection
+# with the operator CLI before either process is allowed to load private PHP files.
+$aiName = 'DISC2_AI_CONFIG_FILE'
+$defaultAi = 'C:\inetpub\private\disc2-ai.php'
+$poolName = $app[0].applicationPool
+$fastCgi = @(Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' -Location "$Site$mount" -Filter 'system.webServer/fastCgi/application' | Where-Object {
+    [Environment]::ExpandEnvironmentVariables([string]$_.fullPath) -eq $cgi -and !$_.arguments
+})
+if ($fastCgi.Count -ne 1) { throw 'Cannot resolve the selected FastCGI application environment.' }
+$fastCgiEnv = @($fastCgi[0].GetCollection('environmentVariables') | Where-Object { $_.name -eq $aiName })
+$poolFilter = "system.applicationHost/applicationPools/add[@name='$poolName']/environmentVariables/add[@name='$aiName']"
+$poolEnv = @(Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter $poolFilter)
+$iisAi = if ($fastCgiEnv.Count) { [string]$fastCgiEnv[0].value } elseif ($poolEnv.Count) { [string]$poolEnv[0].value } else { [Environment]::GetEnvironmentVariable($aiName,'Machine') }
+$iisSelected = if ($iisAi) { $iisAi } else { $defaultAi }
+$cliSelected = if ($env:DISC2_AI_CONFIG_FILE) { $env:DISC2_AI_CONFIG_FILE } else { $defaultAi }
+if (![IO.Path]::IsPathRooted($iisSelected) -or ![IO.Path]::IsPathRooted($cliSelected) -or [IO.Path]::GetFullPath($iisSelected) -ne [IO.Path]::GetFullPath($cliSelected)) {
+    throw 'FastCGI and the operator CLI must select the same external AI configuration.'
+}
+$configFiles = @($configPath)
+$paths = @($configPath,$dbPath)
+$configuredAi = if ($env:DISC2_AI_CONFIG_FILE) { $env:DISC2_AI_CONFIG_FILE } else { $iisAi }
+$ai = Resolve-Disc2AiFiles $configuredAi $AiConfigBackup $defaultAi
+if ($ai) {
+    $configFiles += $ai.Config
+    $paths += $ai.Config,$ai.Recovery
+}
+foreach ($path in $paths) {
     $entry = Get-Item -LiteralPath $path
     while ($entry) {
         if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Select the direct external paths for physical ACL checks.' }
@@ -97,16 +123,10 @@ function Get-DetailedRights([string]$Path) {
     if ($LASTEXITCODE -ne 0) { throw "AccessChk failed for $Path" }
     return Get-Disc2AccessFlags $lines $Path
 }
-$configFlags = @(Get-DetailedRights $configPath)
-$configParentFlags = @(Get-DetailedRights $cfgDir)
 $databaseFlags = @(Get-DetailedRights $dbDir)
-Assert-Disc2StorageRights $cfgDir $dbDir $configFlags $configParentFlags $databaseFlags
-$ancestor = (Get-Item -LiteralPath $cfgDir).Parent
-$chain = @(while ($ancestor) {
-    [pscustomobject]@{ Path=$ancestor.FullName; Flags=@(Get-DetailedRights $ancestor.FullName) }
-    $ancestor = $ancestor.Parent
-})
-if ($chain) { Assert-Disc2AncestorRights $chain }
+foreach ($file in $configFiles) {
+    Assert-Disc2ConfigAcl $file $dbDir $databaseFlags { param($path) Get-DetailedRights $path }
+}
 Read-Rights (Split-Path -Parent $dbDir)
 Read-Rights $dbDir
 Assert-Rights $dbPath $true
@@ -118,7 +138,9 @@ foreach ($suffix in '-wal','-shm') {
 & $phpPath (Join-Path $PSScriptRoot 'iis-http.php') $BaseUri.AbsoluteUri $probeAddress --assets-only
 if ($LASTEXITCODE -ne 0) { throw 'Pre-migration HTTPS asset probe failed.' }
 $deployment = if ($Production) { 'production' } else { 'staging' }
-& $phpPath (Join-Path $PSScriptRoot 'iis-preflight.php') $configPath $dbPath $ExpectedBmaEndpoint $deployment
+$preflight = @($configPath,$dbPath,$ExpectedBmaEndpoint,$deployment)
+if ($ai) { $preflight += $ai.Config,$ai.Recovery }
+& $phpPath (Join-Path $PSScriptRoot 'iis-preflight.php') @preflight
 if ($LASTEXITCODE -ne 0) { throw 'External database/configuration preflight failed.' }
 if ($ApplyMigrations) {
     $liveSite = @(Get-Website -Name $Site | Where-Object { $_.name -eq $Site -and $_.State -eq 'Started' })

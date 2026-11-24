@@ -42,7 +42,7 @@ final class LoginAuthenticator extends AbstractAuthenticator implements Authenti
             is_string($form['username'] ?? null) ? $form['username'] : '',
             is_string($form['password'] ?? null) ? $form['password'] : '',
             is_string($form['login_type'] ?? null) ? $form['login_type'] : 'bma',
-            (string)$request->server->get('REMOTE_ADDR'), (string)$request->headers->get('User-Agent')
+            (string)$request->getClientIp(), (string)$request->headers->get('User-Agent')
         );
         return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), static fn () => $user));
     }

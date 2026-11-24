@@ -107,7 +107,7 @@ final class WorkflowRepositoryTest extends SyntheticDatabaseTestCase
                 new DateTimeImmutable('2024-04-10T12:00:00Z'));
             $escalations->record($transfer, 'synthetic', 'Synthetic owner');
         });
-        self::assertSame($fixture['selected_order'], $tracks->seriousAppointments(1)[1]['appointment']);
+        self::assertSame([$target=>$fixture['selected_order']], array_column($tracks->seriousAppointments(1), 'appointment', 'id'));
         self::assertTrue($tracks->hasActiveDiscipline(1));
         self::assertSame(['total'=>2, 'no_ground'=>0], $findings->factCounts($fact, 1));
 

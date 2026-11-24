@@ -67,7 +67,7 @@ function build(string $tag, string $signer, string $output, ?string $composerPha
         mkdir($stage, 0700);
         $archive = $buildDir.'/source.zip';
         run(['git', 'archive', '--format=zip', '--output='.$archive, $commit, '--', 'bin', 'config', 'migrations', 'public', 'src', 'templates',
-            'tools/iis-smoke.ps1', 'tools/iis-policy.ps1', 'tools/iis-http.php', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock'], $root);
+            'tools/licenses/flatpickr-LICENSE.txt', 'tools/iis-smoke.ps1', 'tools/iis-policy.ps1', 'tools/iis-http.php', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock'], $root);
         $zip = new ZipArchive();
         if ($zip->open($archive, ZipArchive::RDONLY) !== true) {
             throw new RuntimeException('Cannot read source archive.');

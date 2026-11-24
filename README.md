@@ -124,7 +124,7 @@ docker compose down
 ทั้งบน staging และในรอบ production ที่ได้รับอนุมัติ ให้ทำตามขั้นตอนก่อนสลับรุ่นขณะที่ IIS ยังชี้ไปยังรุ่นเดิม
 
 1. หยุดการเขียนจากเว็บและงานเบื้องหลัง ปิดการเข้าสู่ระบบ รอให้ธุรกรรมที่ค้างจบ และบันทึกเวลาที่หยุด
-2. เก็บแพ็กเกจและการตั้งค่า IIS เดิม รวมถึง physical path, binding, handler และตัวตนของ application pool สำรองไฟล์ config ภายนอกไว้ในพื้นที่ส่วนตัว ตรวจว่า SHA-256 ของสำเนา config ตรงกับต้นฉบับและบันทึกตำแหน่งสำหรับกู้คืน
+2. เก็บแพ็กเกจและการตั้งค่า IIS เดิม รวมถึง physical path, binding, handler และตัวตนของ application pool สำรองไฟล์ config ภายนอกไว้ในพื้นที่ส่วนตัว ตรวจว่า SHA-256 ของสำเนา config ตรงกับต้นฉบับและบันทึกตำแหน่งสำหรับกู้คืน หากใช้ config ผู้ช่วย AI ให้สำรองไฟล์นั้นแยกและตรวจ SHA-256 กับต้นฉบับด้วย
 3. บันทึกพาธฐาน SQLite และเลข audit ID สูงสุดก่อนสลับรุ่น (ใช้ศูนย์หากยังไม่มีรายการ audit) ทำ online backup ที่รวมข้อมูลที่ commit ใน WAL เปิดสำเนาแยกเพื่อตรวจว่าเลข audit ID ตรงกัน ผล `PRAGMA integrity_check` เป็น `ok` และ `PRAGMA foreign_key_check` คืนศูนย์แถว บันทึก SHA-256 และตำแหน่งสำเนาไว้ในบันทึกการเปลี่ยนรุ่น
 
 ผู้ดูแลต้องบันทึกผลครบทั้งสามข้อก่อนเริ่มขั้นตอนถัดไป หากตรวจไม่ผ่าน ให้คงรุ่นเดิมและปิดรับการเขียนต่อไป [รายการตรวจก่อนสลับรุ่น](docs/rewrite/cutover-checklist.md)
@@ -133,9 +133,11 @@ docker compose down
 
 ใช้ PHP 8.2 ขึ้นไป พร้อม PDO SQLite, cURL, mbstring, intl และ OPcache ตั้ง `APP_ENV=prod`, `APP_DEBUG=0` และ `APP_SECRET` ส่วนตัวในสภาพแวดล้อมของ FastCGI และ CLI เก็บการตั้งค่าของ Server-A ที่ `C:\inetpub\private\disc2-config.php` กับฐาน SQLite ไว้นอก `public` ให้ application-pool identity อ่าน source/config/vendor และเขียน `var/cache`, `var/log` และ `var/sessions` ได้
 
-ผู้ช่วย AI สำหรับผู้ดูแลใช้ไฟล์ `C:\inetpub\private\disc2-ai.php` หรือพาธจาก `DISC2_AI_CONFIG_FILE` ไฟล์นี้คืนค่า array ที่มี `base_url`, `api_key` และ `model` หน้า Dashboard ส่งเฉพาะจำนวนรวมและสถิติกำหนดเวลา โหมด dev/test ปิดการเรียก Gateway
+ผู้ช่วย AI สำหรับผู้ดูแลใช้ไฟล์ `C:\inetpub\private\disc2-ai.php` หรือพาธจาก `DISC2_AI_CONFIG_FILE` ไฟล์นี้คืนค่า array ที่มี `base_url`, `api_key` และ `model` หน้า Dashboard ส่งเฉพาะจำนวนรวมและสถิติกำหนดเวลา โหมด dev/test ปิดการเรียก Gateway เมื่อเปิดใช้บน IIS ให้ตั้งพาธเดียวกันใน FastCGI และ CLI ตรวจสิทธิ์อ่านของ application pool ที่ไฟล์และทุกโฟลเดอร์บรรพบุรุษ แล้วส่งพาธสำเนากู้คืนที่ตรวจแล้วผ่าน `-AiConfigBackup` หากไม่เปิดใช้และไม่มีไฟล์มาตรฐานให้ละพารามิเตอร์นี้ได้
 
 กำหนด `database_path` ใน array ที่ไฟล์ config ภายนอกส่งคืน ให้ชี้ไปยังไฟล์ฐาน SQLite เดิมด้วยพาธเต็ม หากจัดเก็บ config ที่อื่น ให้ตั้ง `DISC2_CONFIG_FILE` ให้ตรงกันใน FastCGI และ CLI สำหรับ staging ให้ตั้ง `bma_endpoint` และคีย์ของบริการ BMA ทดสอบที่ได้รับอนุมัติ รัน `tools/iis-smoke.ps1` ด้วยพารามิเตอร์ของไซต์และฐานที่ตรวจแล้วพร้อม `-ApplyMigrations` ตามคู่มือ IIS จากนั้นรันซ้ำโดยไม่ใส่สวิตช์นี้ เมื่อผ่านแล้วจึงทดสอบเข้าสู่ระบบด้วยบัญชีที่อนุมัติ ส่วน dev/test ใช้ `runtime/disc2-dev.sqlite` ที่สร้างจาก `php tools/init.php`
+
+ใน config ภายนอก กำหนด `trusted_hosts` เป็นรายชื่อโฮสต์จริงของ IIS และ `trusted_proxies` เป็นรายการ IP หรือ CIDR ของ reverse proxy ที่ได้รับอนุมัติ เมื่อ IIS รับคำขอโดยตรงให้ใช้รายการ proxy ว่าง ระบบนับการเข้าสู่ระบบตาม IP ที่ Symfony ตรวจจากการเชื่อมต่อ
 
 ตรวจด้วย `composer check-platform-reqs --no-dev` และ `php bin/console cache:warmup --env=prod --no-debug` ใน staging จากนั้นตรวจ HTTP ผ่าน IIS ที่ mount จริง ชุดทดสอบ `tests/Smoke/KernelBootTest.php` จำลอง FastCGI และตรวจไฟล์กฎสำหรับการพัฒนา
 

@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 {% block head %}
     <link rel="stylesheet" href="{{ asset('assets/uat.css') }}?v=profile-menu">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="{{ asset('assets/flatpickr-4.6.13.min.css') }}">
 {% endblock %}
 {% block body %}
     {% set role = app.user.scope.role.value %}
@@ -32,16 +32,21 @@
     <main>
         {% block content %}{% endblock %}
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+    <script src="{{ asset('assets/flatpickr-4.6.13.min.js') }}"></script>
+    <script src="{{ asset('assets/flatpickr-4.6.13-th.js') }}"></script>
     <script>
         if (typeof flatpickr === 'function') {
             const displayYear = (_, __, picker) => {
-                const field = picker.calendarContainer.querySelector('.cur-year');
-                if (field) {
-                    field.value = picker.currentYear + 543;
-                    field.readOnly = true;
+                const field = picker.currentYearElement;
+                let label = field.parentNode.querySelector('output');
+                if (!label) {
+                    // Flatpickr reads the Gregorian input to step the year. Keep its display separate.
+                    field.hidden = true;
+                    label = document.createElement('output');
+                    label.setAttribute('aria-label', 'ปี พ.ศ.');
+                    field.after(label);
                 }
+                label.value = String(picker.currentYear + 543);
             };
             flatpickr('input[type=date]:not([name=start_date])', {
                 locale: 'th',
@@ -56,7 +61,9 @@
                     return flatpickr.formatDate(date, format, locale);
                 },
                 onReady: displayYear,
-                onMonthChange: displayYear
+                onOpen: displayYear,
+                onMonthChange: displayYear,
+                onYearChange: displayYear
             });
         }
     </script>

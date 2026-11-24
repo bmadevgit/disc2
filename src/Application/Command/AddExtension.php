@@ -21,7 +21,7 @@ final readonly class AddExtension
     {
         return $this->write->run($user, $caseId, function () use ($caseId, $input) {
             $track = $this->write->track($caseId, $input);
-            $days = Fields::days($input, 'requested_days');
+            $days = Fields::days($input, 'requested_days', message: 'กรุณาระบุจำนวนวันที่ขยายเป็นจำนวนเต็มบวก');
             if ($track['due_date'] === '') {
                 throw new WriteFailure('กรุณาบันทึกกำหนดเวลาก่อนขยายเวลา');
             }

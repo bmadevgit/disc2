@@ -10,7 +10,8 @@ final class Disc2Release
         'config/packages/framework.yaml', 'config/packages/security.yaml', 'config/packages/twig.yaml', 'config/packages/monolog.yaml',
         'migrations/001_uat.sql', 'migrations/002_comment2.sql', 'migrations/003_subject_national_id.sql', 'migrations/004_workflow.sql',
         'public/index.php', 'public/web.config', 'public/assets/login.css', 'public/assets/login.js', 'public/assets/uat.css', 'public/assets/workflow.js',
-        'src/Kernel.php', 'templates/base.html.twig', 'vendor/autoload.php', 'vendor/autoload_runtime.php',
+        'public/assets/flatpickr-4.6.13.min.css', 'public/assets/flatpickr-4.6.13.min.js', 'public/assets/flatpickr-4.6.13-th.js',
+        'tools/licenses/flatpickr-LICENSE.txt', 'src/Kernel.php', 'templates/base.html.twig', 'vendor/autoload.php', 'vendor/autoload_runtime.php',
         'vendor/composer/autoload_classmap.php', 'vendor/composer/installed.php', 'vendor/composer/installed.json',
         'tools/iis-smoke.ps1', 'tools/iis-policy.ps1', 'tools/iis-http.php', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock',
     ];

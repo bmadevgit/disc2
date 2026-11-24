@@ -141,6 +141,22 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
         self::assertSame('synthetic', $db->query('SELECT letter_number FROM uat_kk_reports WHERE decision_id=23')->fetchColumn());
     }
 
+    public function testRebuildPreservesDeletedAutoincrementHighWaterMarks(): void
+    {
+        $db = $this->preWorkflowDatabase();
+        $db->exec("INSERT INTO cases(id) VALUES(7);
+            INSERT INTO uat_subjects(id,case_id,sequence_no) VALUES(17,7,1);
+            INSERT INTO uat_tracks(id,case_id,track_type) VALUES(11,7,'discipline_serious'),(90,7,'fact');
+            INSERT INTO uat_decisions(id,case_id,subject_id,route_type) VALUES(120,7,17,'serious');
+            DELETE FROM uat_tracks WHERE id=90; DELETE FROM uat_decisions WHERE id=120");
+        $command = new CommandTester(new MigrateCommand($db, $this->root.'/migrations'));
+        self::assertSame(0, $command->execute([]), $command->getDisplay());
+        $db->exec("INSERT INTO uat_tracks(case_id,track_type) VALUES(7,'fact')");
+        self::assertSame('91', $db->lastInsertId());
+        $db->exec("INSERT INTO uat_decisions(case_id,subject_id,route_type,track_id) VALUES(7,17,'serious',11)");
+        self::assertSame('121', $db->lastInsertId());
+    }
+
     public function testUpgradeFrom003UsesNormalCascadesInFollowingVersion(): void
     {
         $db = $this->preWorkflowDatabase();
