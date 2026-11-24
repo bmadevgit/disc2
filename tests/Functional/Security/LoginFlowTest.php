@@ -92,7 +92,7 @@ final class LoginFlowTest extends SyntheticDatabaseTestCase
         $this->client->getCookieJar()->set(new Cookie('disc2_uat', 'old-session', null, '/', 'localhost', true));
         $this->client->setServerParameter('SCRIPT_FILENAME', 'C:/inetpub/wwwroot/exam/disc2/public/index.php');
         $this->client->setServerParameter('SCRIPT_NAME', $mount.'/index.php');
-        $this->csrf('https://localhost'.$mount.'/login.php');
+        $token = $this->csrf('https://localhost'.$mount.'/login.php');
         $cookies = $this->response()->headers->getCookies();
         $current = array_values(array_filter($cookies, fn ($c) => !$c->isCleared()))[0];
         self::assertNotSame('disc2_uat', $current->getName());
@@ -106,6 +106,12 @@ final class LoginFlowTest extends SyntheticDatabaseTestCase
             self::assertSame(419, $this->response()->getStatusCode());
         }
         self::assertSame(0, $this->db->query('SELECT COUNT(*) FROM login_log')->fetchColumn());
+        $this->client->request('POST', 'https://localhost'.$mount.'/login.php', [
+            'csrf' => $token, 'username' => 'demo-admin', 'password' => $this->passwords['demo-admin'],
+        ]);
+        $this->redirects($mount.'/index.php');
+        $this->client->request('GET', 'https://localhost'.$mount.'/login.php');
+        $this->redirects($mount.'/admin.php');
     }
 
     public function testAuthorizationRunsBeforeProtectedController(): void
@@ -170,6 +176,13 @@ final class LoginFlowTest extends SyntheticDatabaseTestCase
         $this->attempt($this->csrf('/login.php'), 'second', 'different-id', 'bma');
         self::assertSame(200, $this->response()->getStatusCode());
         self::assertSame('fail', $this->db->query('SELECT status FROM login_log ORDER BY id DESC LIMIT 1')->fetchColumn());
+        $directory->record = ['LdapPersonalID' => 'different-id', 'LdapDisplayName' => 'Directory name', 'UnitLevel1' => 'Other unit'];
+        $this->attempt($this->csrf('/login.php'), 'second', 'different-id', 'bma');
+        $this->redirects('/index.php');
+        $actor = $this->client->getContainer()->get(UserProvider::class)->loadUserByIdentifier('bma:different-id');
+        self::assertSame('Directory name', $actor->name);
+        self::assertSame('case_owner', $actor->scope->role->value);
+        self::assertSame('Other unit', $actor->scope->unit);
     }
 
     private function liveSettings(): void
