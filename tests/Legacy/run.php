@@ -104,11 +104,13 @@ function seedRoles(PDO $db, array $accounts): array
     foreach (['executive','unit_head','unrelated','unassigned'] as $name) {
         $password = bin2hex(random_bytes(12));
         $insert->execute([$name, $name, password_hash($password, PASSWORD_DEFAULT)]);
-        if ($name !== 'unassigned') {
-            $assign->execute([$db->lastInsertId(), $name, $name === 'unrelated' ? 'case_owner' : $name, 'สำนักงานตัวอย่าง', 'กลุ่มงานวินัยตัวอย่าง']);
-        }
+        $assign->execute([$db->lastInsertId(), $name, 'case_owner', 'สำนักงานตัวอย่าง', 'กลุ่มงานวินัยตัวอย่าง']);
         $accounts[$name] = $password;
     }
+
+    // Obtain a genuine authenticated form token before applying each read-only assignment.
+    $db->exec("UPDATE uat_access_assignments SET access_role='case_owner'
+        WHERE bma_personal_id=(SELECT id FROM users WHERE username='demo-reader')");
 
     $case = $db->prepare('INSERT INTO cases(เลขที่สำนวน,unit_level1) VALUES(?,?)');
     $meta = $db->prepare('INSERT INTO uat_case_meta(case_id,unit_level1,unit_level2) VALUES(?,?,?)');
@@ -126,7 +128,17 @@ function seedRoles(PDO $db, array $accounts): array
     return $accounts;
 }
 
-function checkRoles(string $base, array $accounts): Browser
+function caseAndAuditState(PDO $db): array
+{
+    $state = [];
+    foreach (['cases','uat_case_meta','uat_case_owners','uat_subjects','uat_tracks',
+        'uat_track_subjects','uat_subject_findings','uat_audit_log'] as $table) {
+        $state[$table] = $db->query("SELECT * FROM $table ORDER BY rowid")->fetchAll();
+    }
+    return $state;
+}
+
+function checkRoles(PDO $db, string $base, array $accounts): Browser
 {
     $public = new Browser($base);
     foreach (['/', '/case.php?id=1', '/save_case.php', '/admin.php', '/users.php'] as $path) {
@@ -139,9 +151,18 @@ function checkRoles(string $base, array $accounts): Browser
     $public->request('/migrate.php', 404);
     $public->request('/save_case.php', 302, ['action'=>'save_fact'], '/login.php');
 
+    $readOnlyRoles = ['demo-reader'=>'group_head','executive'=>'executive','unit_head'=>'unit_head'];
+    $assignRole = $db->prepare('UPDATE uat_access_assignments SET access_role=?
+        WHERE bma_personal_id=(SELECT id FROM users WHERE username=?)');
     foreach ($accounts as $username => $password) {
         $browser = new Browser($base);
         $browser->login($username, $password);
+        $csrf = field($browser->request('/index.php', 200), 'csrf');
+        if (isset($readOnlyRoles[$username])) {
+            $assignRole->execute([$readOnlyRoles[$username], $username]);
+        } elseif ($username === 'unassigned') {
+            $db->exec("DELETE FROM uat_access_assignments WHERE bma_personal_id=(SELECT id FROM users WHERE username='unassigned')");
+        }
         $admin = $username === 'demo-admin';
         $owner = $username === 'demo-owner';
         $reader = $username === 'demo-reader';
@@ -186,8 +207,20 @@ function checkRoles(string $base, array $accounts): Browser
             $json = $browser->request('/ai_dashboard.php', 503, ['csrf'=>field($list, 'csrf')]);
             same(false, json_decode($json, true, flags: JSON_THROW_ON_ERROR)['ok'], 'AI disabled in demo');
         }
-        if ($username === 'unrelated') {
-            $browser->request('/save_case.php', 403, ['action'=>'save_fact','case_id'=>1,'csrf'=>field($list, 'csrf')]);
+        if (!$admin && !$owner) {
+            $before = caseAndAuditState($db);
+            if ($username !== 'unrelated') {
+                $browser->request('/save_case.php', 403, ['action'=>'create_case','case_number'=>'DENIED-CREATE','csrf'=>$csrf]);
+                same($before, caseAndAuditState($db), "$username denied create must preserve cases and audit");
+            } else {
+                $browser->request('/save_case.php', 403, ['action'=>'save_fact','case_id'=>1,'csrf'=>$csrf]);
+                same($before, caseAndAuditState($db), 'Former owner cannot change findings or audit');
+            }
+            $browser->request('/save_case.php', 403, [
+                'action'=>'save_page1', 'case_id'=>1, 'case_number'=>'DENIED-EDIT',
+                'preliminary_allegation'=>'Denied edit fixture', 'csrf'=>$csrf,
+            ]);
+            same($before, caseAndAuditState($db), "$username denied edit must preserve cases and audit");
         }
         if ($owner) {
             $editor = $browser;
@@ -242,7 +275,7 @@ function runLegacy(string $root): void
             usleep(20000);
         }
         if (!$base) throw new RuntimeException('Synthetic HTTP server failed to start');
-        $editor = checkRoles($base, $accounts);
+        $editor = checkRoles($db, $base, $accounts);
         echo "PASS role, scope, identity, aliases and status contracts\n";
         $fixtures = require $root.'/tests/Fixtures/legacy-workflows.php';
         checkWorkflows($editor, $db, $fixtures);
@@ -340,9 +373,18 @@ function checkWorkflows(Browser $editor, PDO $db, array $fixture): void
     $post('add_order', ['track_id'=>$target,'event_type'=>'appoint','order_number'=>$round['selected_order']], 302, $targetPath.'&saved=1');
     $results = $editor->request(trackPath($type,$source,'discipline_results'), 200);
     containsText($results, 'method="post" action="/save_discipline.php"', true, 'Discipline result form target');
-    containsText($results, 'name="target_track"', true, 'Escalation form selects destination');
-    containsText($results, $round['selected_order'], true, 'Serious order selectable');
-    $escalate = ['subject_id'=>1,'track_id'=>$source,'target_track'=>$target,
+    $html = new DOMDocument();
+    $html->loadHTML($results, LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_NONET);
+    $xpath = new DOMXPath($html);
+    $options = $xpath->query('//form[input[@name="action" and @value="escalate_discipline"] and input[@name="subject_id" and @value="1"]]//select[@name="target_track"]/option');
+    $orderChoices = [];
+    foreach ($options as $option) {
+        if (str_ends_with(trim($option->textContent), ' · '.$round['selected_order'])) {
+            $orderChoices[] = $option->getAttribute('value');
+        }
+    }
+    same([(string)$target], $orderChoices, 'Selected appointment label maps to its track');
+    $escalate = ['subject_id'=>1,'track_id'=>$source,'target_track'=>$orderChoices[0],
         'effective_date'=>$round['effective_date'],'reference'=>$round['reference']];
     $post('escalate_discipline', $escalate, 302, $targetPath.'&saved=1');
     $post('escalate_discipline', $escalate, 302, $targetPath.'&saved=1');
