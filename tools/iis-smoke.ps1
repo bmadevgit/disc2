@@ -18,7 +18,7 @@ $root = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $mount = '/exam/disc2'
 $bindings = @(foreach ($webSite in Get-Website) {
     foreach ($binding in Get-WebBinding -Name $webSite.name -Protocol https) {
-        [pscustomobject]@{Site=$webSite.name; Info=$binding.bindingInformation}
+        [pscustomobject]@{Site=$webSite.name; State=[string]$webSite.State; Info=$binding.bindingInformation}
     }
 })
 $localAddresses = @([Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object {
@@ -86,30 +86,43 @@ foreach ($path in $configPath,$dbPath) {
     }
 }
 function Get-DetailedRights([string]$Path) {
-    $parent = Split-Path -Parent $Path
-    $lines = @(& $AccessChk -nobanner -v $principal $parent)
-    if ($LASTEXITCODE -ne 0) { throw "AccessChk failed at $parent" }
+    $target = Get-Item -LiteralPath $Path
+    if ($target -is [IO.DirectoryInfo] -and !$target.Parent) {
+        # A volume/share root has no enclosing directory to enumerate. Query the directory object itself.
+        $lines = @(& $AccessChk -nobanner -d -v $principal $target.FullName)
+    } else {
+        $parent = Split-Path -Parent $Path
+        $lines = @(& $AccessChk -nobanner -v $principal $parent)
+    }
+    if ($LASTEXITCODE -ne 0) { throw "AccessChk failed for $Path" }
     return Get-Disc2AccessFlags $lines $Path
 }
 $configFlags = @(Get-DetailedRights $configPath)
 $configParentFlags = @(Get-DetailedRights $cfgDir)
 $databaseFlags = @(Get-DetailedRights $dbDir)
 Assert-Disc2StorageRights $cfgDir $dbDir $configFlags $configParentFlags $databaseFlags
-Read-Rights (Split-Path -Parent $cfgDir)
-Read-Rights $cfgDir
+$ancestor = (Get-Item -LiteralPath $cfgDir).Parent
+$chain = @(while ($ancestor) {
+    [pscustomobject]@{ Path=$ancestor.FullName; Flags=@(Get-DetailedRights $ancestor.FullName) }
+    $ancestor = $ancestor.Parent
+})
+if ($chain) { Assert-Disc2AncestorRights $chain }
 Read-Rights (Split-Path -Parent $dbDir)
 Read-Rights $dbDir
-Assert-Rights $configPath $false
-Assert-Rights $cfgDir $false
 Assert-Rights $dbPath $true
 Assert-Rights $dbDir $true
 foreach ($suffix in '-wal','-shm') {
     if (Test-Path -LiteralPath ($dbPath+$suffix)) { Assert-Rights ($dbPath+$suffix) $true }
 }
+# Confirm the selected site's actual TLS listener and tagged assets before executing external config or touching SQLite.
+& $phpPath (Join-Path $PSScriptRoot 'iis-http.php') $BaseUri.AbsoluteUri $probeAddress --assets-only
+if ($LASTEXITCODE -ne 0) { throw 'Pre-migration HTTPS asset probe failed.' }
 $deployment = if ($Production) { 'production' } else { 'staging' }
 & $phpPath (Join-Path $PSScriptRoot 'iis-preflight.php') $configPath $dbPath $ExpectedBmaEndpoint $deployment
 if ($LASTEXITCODE -ne 0) { throw 'External database/configuration preflight failed.' }
 if ($ApplyMigrations) {
+    $liveSite = @(Get-Website -Name $Site | Where-Object { $_.name -eq $Site -and $_.State -eq 'Started' })
+    if ($liveSite.Count -ne 1) { throw 'Selected site stopped before migration.' }
     & $phpPath (Join-Path $root 'bin\console') app:migrate --env=prod --no-debug --no-interaction
     if ($LASTEXITCODE -ne 0) { throw 'CLI migration failed.' }
 }

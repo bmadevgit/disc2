@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // Probe the IP selected from the local IIS bindings while preserving the certificate hostname and SNI.
-if (PHP_SAPI !== 'cli' || $argc !== 3) {
+if (PHP_SAPI !== 'cli' || !($argc === 3 || ($argc === 4 && $argv[3] === '--assets-only'))) {
     exit(1);
 }
 try {
@@ -44,6 +44,15 @@ try {
         }
         return $body;
     };
+    foreach (['login.css','login.js','uat.css','workflow.js'] as $asset) {
+        if (!hash_equals($manifest['files']['public/assets/'.$asset], hash('sha256', $request('assets/'.$asset, [200])))) {
+            throw new RuntimeException("Static asset mismatch: $asset");
+        }
+    }
+    if (($argv[3] ?? '') === '--assets-only') {
+        echo "Pinned HTTPS release asset digests verified.\n";
+        exit(0);
+    }
     $login = $request('login.php?login_type=admin', [200]);
     if (!preg_match('/name="csrf" value="([^"]+)"/', $login, $token) || !str_contains($login, 'id="form-admin"') || !str_contains($login, '/exam/disc2/assets/login.css')) {
         throw new RuntimeException('Production login or asset mount failed.');
@@ -59,11 +68,6 @@ try {
     $request('case.php?id=1', [302]);
     $request('logout.php', [419], 'csrf=invalid');
     $request('logout.php', [302], http_build_query(['csrf'=>$token[1]]));
-    foreach (['login.css','login.js','uat.css','workflow.js'] as $asset) {
-        if (!hash_equals($manifest['files']['public/assets/'.$asset], hash('sha256', $request('assets/'.$asset, [200])))) {
-            throw new RuntimeException("Static asset mismatch: $asset");
-        }
-    }
     foreach (['vendor/autoload.php','config/services.yaml','templates/base.html.twig','tools/iis-preflight.php','runtime/disc2-dev.sqlite','.env','var/log/prod.log','migrations/001_uat.sql','web.config'] as $private) {
         $request($private, [403,404]);
     }
