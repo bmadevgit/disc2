@@ -52,7 +52,7 @@ Tab redirects have the form `case.php?id={case_id}&page={tab}&saved=1`. Track re
 | convert_serious_deadline | track_type, track_id, revision, reason | Track, 409 stale revision, 422 blank reason |
 | add_order | track_id, event_type, order_date, order_number, detail | Fact tab 2 or discipline track |
 | add_extension | track_id, requested_days, completed_work, reason | Fact tab 2 or discipline track |
-| escalate_discipline | track_id, subject_id, effective_date, reference, target_track (existing serious ID or new) | Selected serious track, preserves previous round |
+| escalate_discipline | track_id, subject_id, effective_date, reference, target_track (existing serious ID or new), target_revision[track_id] for an existing selection | Selected serious track, 409 if its displayed appointment changed, preserves previous round |
 | save_decision | track_id, subject_id, report_kk_date, kk_resolution_date, kk_resolution, commander_decision, order_number, order_date, finished_date | Tab 4, 409 stale round, 422 serious order without resolution and date |
 
 The server ignores the posted preview and discipline duration. Automatic timing uses the acknowledgement and first meeting. A manual start requires an override reason. Confirmation checks the stored 180-day track and extension revision under the writer lock. An extension-free draft can convert with its dates blank. A schedule that cannot produce a valid confirmation preview returns 422. Workflow lock contention returns 503 with a one-second Retry-After header.

@@ -22,14 +22,6 @@ final class CommitteeRepository extends Repository
             JOIN uat_tracks t ON t.id=cs.track_id JOIN uat_subjects s ON s.id=m.subject_id AND s.case_id=t.case_id WHERE t.id=?', [$trackId]);
     }
 
-    /** Match the appointment displayed in the serious-round picker to its recorded named set. */
-    public function appointedSets(int $trackId): array
-    {
-        return $this->rows("SELECT cs.id FROM uat_committee_sets cs JOIN uat_committee_orders o ON o.track_id=cs.track_id
-            AND o.order_number=cs.order_number AND o.order_date=cs.order_date WHERE cs.track_id=? AND cs.active=1
-            AND o.id=(SELECT MAX(id) FROM uat_committee_orders WHERE track_id=cs.track_id AND event_type='appoint')", [$trackId]);
-    }
-
     public function createSet(int $trackId, string $code, string $date, string $number): int
     {
         $created = $this->execute('INSERT INTO uat_committee_sets(track_id,set_code,order_date,order_number)

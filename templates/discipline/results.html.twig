@@ -69,6 +69,9 @@
                             <input type="hidden" name="track_id" value="{{ track.id }}">
                             <input type="hidden" name="subject_id" value="{{ sid }}">
                             <div>
+                                {% for target in seriousTracks %}
+                                    <input type="hidden" name="target_revision[{{ target.id }}]" value="{{ target.revision }}">
+                                {% endfor %}
                                 <label>ชุด คกก. ร้ายแรง
                                 <select name="target_track" required>
                                     <option value="">เลือกชุด คกก.</option>

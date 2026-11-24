@@ -399,6 +399,11 @@ function checkWorkflows(Closure $request, PDO $db, array $fixture): void
     same([(string)$target], $orderChoices, 'Selected appointment label maps to its track');
     $escalate = ['subject_id'=>1,'track_id'=>$source,'target_track'=>$orderChoices[0],
         'effective_date'=>$round['effective_date'],'reference'=>$round['reference']];
+    // Symfony binds each displayed appointment to its revision. Procedural forms predate that field.
+    $revision = $xpath->query('//form[input[@name="subject_id" and @value="1"]]//input[@name="target_revision['.$target.']"]')->item(0);
+    if ($revision !== null) {
+        $escalate['target_revision'] = [$target=>$revision->getAttribute('value')];
+    }
     $post('escalate_discipline', $escalate, 302, $targetPath.'&saved=1');
     $post('escalate_discipline', $escalate, 302, $targetPath.'&saved=1');
     same(1, $db->query('SELECT COUNT(*) FROM uat_escalations')->fetchColumn(), 'Repeat escalation');

@@ -25,14 +25,14 @@ final readonly class EscalateDiscipline
         return $this->write->run($user, $caseId, function (User $actor) use ($caseId, $input) {
             $sid = Fields::id($input, 'subject_id');
             $from = Fields::id($input, 'track_id');
+            $previous = $this->escalations->previousTarget($caseId, $sid, $from);
+            if ($previous) {
+                return $previous;
+            }
             $date = Fields::date($input, 'effective_date');
             $reference = Fields::text($input, 'reference');
             if ($date === '' || $reference === '') {
                 throw new WriteFailure('กรุณาระบุวันที่และหลักฐานคำสั่ง');
-            }
-            $previous = $this->escalations->previousTarget($caseId, $sid, $from);
-            if ($previous) {
-                return $previous;
             }
             $current = $this->write->current($caseId, $sid, $from);
             if ($current['track_type'] !== TrackType::NonSerious->value) {
@@ -40,14 +40,25 @@ final readonly class EscalateDiscipline
             }
             $source = $this->escalations->round($caseId, TrackType::NonSerious, $from, $sid);
             $targetId = Fields::id($input, 'target_track');
+            $setId = null;
             if (($input['target_track'] ?? '') === 'new') {
                 $targetId = $this->tracks->createSeriousSet($caseId);
                 $this->committees->addOrder($targetId, 'appoint', $date, $reference, '');
-            } elseif (!$targetId) {
-                throw new WriteFailure('กรุณาเลือกชุด คกก. ร้ายแรง');
+            } else {
+                if (!$targetId) {
+                    throw new WriteFailure('กรุณาเลือกชุด คกก. ร้ายแรง');
+                }
+                $appointment = $this->tracks->seriousAppointments($caseId, $targetId)[0]
+                    ?? throw new WriteFailure('ไม่พบกระบวนการสอบสวน', 404);
+                $revisions = $input['target_revision'] ?? [];
+                $revision = is_array($revisions) ? ($revisions[$targetId] ?? null) : null;
+                if (!is_string($revision) || !hash_equals($appointment['revision'], $revision)
+                    || $appointment['appointed_set_count'] > 1) {
+                    throw new WriteFailure('คำสั่งแต่งตั้งมีการเปลี่ยนแปลง กรุณาเปิดหน้าเลือกชุด คกก. อีกครั้ง', 409);
+                }
+                $setId = $appointment['appointed_set_id'];
             }
-            $targetTrack = $this->tracks->find($caseId, TrackType::Serious, $targetId)
-                ?? throw new WriteFailure('ไม่พบกระบวนการสอบสวน', 404);
+            $targetTrack = $this->tracks->find($caseId, TrackType::Serious, $targetId);
             $target = new DisciplineRound($targetTrack, members: array_filter([$this->tracks->member($targetId, $sid)]));
             try {
                 $transfer = Escalation::transfer($sid, $source, $target, $date, $reference, new DateTimeImmutable());
@@ -55,8 +66,7 @@ final readonly class EscalateDiscipline
                 throw new WriteFailure('โปรดตรวจสอบสมาชิกและความเห็น คกก. ที่เสนอให้สอบสวนร้ายแรง');
             }
             $this->escalations->record($transfer, $actor->scope->actorId, $actor->name);
-            $sets = $this->committees->appointedSets($targetId);
-            if (count($sets) > 1 || ($sets && !$this->committees->addSetMember($sets[0]['id'], $sid))) {
+            if ($setId !== null && !$this->committees->addSetMember($setId, $sid)) {
                 throw new WriteFailure('กรุณาตรวจสอบสมาชิกชุด คกก. ตามคำสั่งแต่งตั้ง', 409);
             }
             $this->audit->record($caseId, 'escalate_discipline', json_encode(['subject_id'=>$sid, 'before'=>$from,

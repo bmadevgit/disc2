@@ -52,12 +52,16 @@ final readonly class CreateCommittee
                 throw new WriteFailure('มีชุดคณะกรรมการนี้แล้ว', 409);
             }
             $members = Fields::subjectMap($input, 'members');
+            $eligible = array_column($this->subjects->withGrounds($caseId), 'id', 'id');
             foreach ($members as $member) {
                 $sid = Fields::id(['subject_id'=>$member], 'subject_id');
                 if (!$this->subjects->activeStatus($caseId, $sid)) {
                     throw new WriteFailure('ไม่พบผู้ถูกกล่าวหาในสำนวน', 404);
                 }
                 $current = $this->tracks->currentDiscipline($caseId, $sid);
+                if (!$current && !isset($eligible[$sid])) {
+                    throw new WriteFailure('ต้องบันทึกผลสืบสวนว่ามีมูลก่อนกำหนดชุดคณะกรรมการ');
+                }
                 if (($current && $current['id'] !== $id) || !$this->committees->addSetMember($set, $sid)) {
                     throw new WriteFailure('รอบสอบสวนของบุคคลนี้เปลี่ยนไปแล้ว', 409);
                 }

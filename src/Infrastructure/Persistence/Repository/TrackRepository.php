@@ -26,10 +26,28 @@ final class TrackRepository extends Repository
         return $this->rows("SELECT * FROM uat_tracks WHERE case_id=? AND track_type<>'fact' ORDER BY track_type,set_no", [$caseId]);
     }
 
-    public function seriousAppointments(int $caseId): array
+    /** Read the displayed order and the matching active set in one SQLite snapshot. */
+    public function seriousAppointments(int $caseId, ?int $trackId = null): array
     {
-        return $this->rows("SELECT t.*,(SELECT order_number FROM uat_committee_orders o WHERE o.track_id=t.id AND o.event_type='appoint'
-            ORDER BY o.id DESC LIMIT 1) appointment FROM uat_tracks t WHERE t.case_id=? AND t.track_type='discipline_serious' ORDER BY t.set_no", [$caseId]);
+        $sql = "SELECT t.*,o.id appointment_id,o.order_number appointment,o.order_date,o.detail appointment_detail,
+            MIN(cs.id) appointed_set_id,COUNT(cs.id) appointed_set_count FROM uat_tracks t
+            LEFT JOIN uat_committee_orders o ON o.id=(SELECT MAX(id) FROM uat_committee_orders
+                WHERE track_id=t.id AND event_type='appoint')
+            LEFT JOIN uat_committee_sets cs ON cs.track_id=t.id AND cs.active=1
+                AND cs.order_number=o.order_number AND cs.order_date=o.order_date
+            WHERE t.case_id=? AND t.track_type='discipline_serious'";
+        $params = [$caseId];
+        if ($trackId !== null) {
+            $sql .= ' AND t.id=?';
+            $params[] = $trackId;
+        }
+        $appointments = $this->rows($sql.' GROUP BY t.id ORDER BY t.set_no', $params);
+        foreach ($appointments as $i => $row) {
+            $appointments[$i]['revision'] = hash('sha256', serialize([$row['case_id'], $row['id'], $row['set_no'],
+                $row['appointment_id'], $row['appointment'], $row['order_date'], $row['appointment_detail'],
+                $row['appointed_set_id'], $row['appointed_set_count']]));
+        }
+        return $appointments;
     }
 
     public function hasActiveDiscipline(int $caseId): bool
