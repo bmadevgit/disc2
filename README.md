@@ -84,6 +84,8 @@ try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
 
 รันจากรากโครงการ `disc2` ที่มี `compose.yaml` คำสั่ง `export` ตั้งให้คอนเทนเนอร์สร้างไฟล์ทดสอบด้วย UID และ GID ของผู้ใช้ WSL ให้รันในเทอร์มินัลที่ใช้สั่ง Compose
 
+ตรวจว่า `docker info` แสดง Docker Engine เวอร์ชัน `28.0.0` ขึ้นไปก่อนสร้างอิมเมจ รุ่นก่อนหน้านี้อาจเปิดให้เครื่องอื่นในเครือข่ายชั้น 2 เดียวกันเข้าถึงพอร์ตที่เผยแพร่บน `localhost` ได้ [เอกสาร Docker เรื่องการเผยแพร่พอร์ต](https://docs.docker.com/engine/network/port-publishing/)
+
 ```bash
 docker info --format '{{.ServerVersion}}'
 docker compose version
