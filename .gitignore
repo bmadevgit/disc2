@@ -16,3 +16,4 @@
 *.bundle
 *.log
 /config.local.php
+/.worktrees/
