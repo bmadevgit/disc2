@@ -22,6 +22,8 @@
 
 ## นำรุ่นที่ผ่านการตรวจขึ้น Server-A
 
+ตั้ง `bma_endpoint` ใน config ของ staging ให้เป็น HTTPS ของ BMA ทดสอบพร้อมกุญแจของระบบนั้น และตรวจ URL กับค่าที่อนุมัติก่อนย้ายฐาน
+
 ผู้ดูแลใช้แท็ก Git ที่ลงนาม ตรวจ fingerprint ของผู้ลงนามและ SHA-256 ของ ZIP แล้วซ้อมผ่าน IIS staging ที่ `/exam/disc2` ก่อนอนุมัติขึ้น Server-A ใช้ `php bin/console app:migrate --env=prod --no-debug` หลังหยุดรับการเขียนและตรวจ SQLite online backup แล้ว
 
 เมื่อย้อนรุ่น production ให้เก็บฐานปัจจุบัน สำรองอีกครั้งหลังหยุดการเขียน แล้วเปลี่ยนเฉพาะโค้ดและค่าตั้งที่เข้ากันได้ ตรวจผ่านรุ่นเก่าว่าอ่านข้อมูลและ audit หลัง cutover ครบ ส่วน demo สามารถกู้ฐานก่อน cutover ได้ [ขั้นตอน build, deployment และ rollback](docs/IIS-DEPLOYMENT.md)

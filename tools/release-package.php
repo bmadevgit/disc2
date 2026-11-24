@@ -12,7 +12,7 @@ final class Disc2Release
         'public/index.php', 'public/web.config', 'public/assets/login.css', 'public/assets/login.js', 'public/assets/uat.css', 'public/assets/workflow.js',
         'src/Kernel.php', 'templates/base.html.twig', 'vendor/autoload.php', 'vendor/autoload_runtime.php',
         'vendor/composer/autoload_classmap.php', 'vendor/composer/installed.php', 'vendor/composer/installed.json',
-        'tools/iis-smoke.ps1', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock',
+        'tools/iis-smoke.ps1', 'tools/iis-policy.ps1', 'tools/iis-http.php', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock',
     ];
     public const EXTENSIONS = ['curl', 'iconv', 'intl', 'mbstring', 'pdo_sqlite', 'session', 'xml', 'Zend OPcache'];
     public const MANIFEST = 'release-manifest.json';
@@ -31,6 +31,11 @@ final class Disc2Release
     public static function allowed(string $name, array $packages): bool
     {
         if (!self::portableName($name) || preg_match('~(?:^|/)(?:tests|fixtures)(?:/|$)|\.(?:db|sqlite3?)(?:[-.].*)?$|\.(?:key|pem|pfx|p12|log|bak|zip)$~i', $name)) {
+            return false;
+        }
+        // Twig compiles template predicates through these runtime expression nodes.
+        if (str_starts_with($name, 'vendor/') && preg_match('~/test/~i', $name)
+            && !str_starts_with($name, 'vendor/twig/twig/src/Node/Expression/Test/')) {
             return false;
         }
         if (in_array($name, self::REQUIRED, true)) {

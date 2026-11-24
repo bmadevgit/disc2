@@ -10,7 +10,7 @@ final readonly class BmaApiDirectory implements BmaDirectory
 {
     public function __construct(
         private AuthSettings $settings,
-        private string $endpoint = 'https://register.bangkok.go.th/bmamailadmin/web/index.php?r=api/getuserinfo',
+        private ?string $caFile = null,
     ) {
     }
 
@@ -20,9 +20,14 @@ final readonly class BmaApiDirectory implements BmaDirectory
         if ($secret === '') {
             throw new CustomUserMessageAuthenticationException('ยังไม่ได้ตั้งค่าการเข้าสู่ระบบ BMA');
         }
-        $request = curl_init($this->endpoint);
+        $endpoint = $this->settings->bmaEndpoint();
+        $request = curl_init($endpoint);
+        if ($this->caFile !== null) {
+            curl_setopt($request, CURLOPT_CAINFO, $this->caFile);
+        }
         curl_setopt_array($request, [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query(['secretkey' => $secret, 'Email' => $username]),
             CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
@@ -45,7 +50,7 @@ final readonly class BmaApiDirectory implements BmaDirectory
                 break;
             }
             $next = curl_getinfo($request, CURLINFO_REDIRECT_URL);
-            if (!$next || $this->origin($next) !== $this->origin($this->endpoint)) {
+            if (!$next || $this->origin($next) !== $this->origin($endpoint)) {
                 break;
             }
             curl_setopt($request, CURLOPT_URL, $next);

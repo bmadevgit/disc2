@@ -54,6 +54,18 @@ final class ReleasePackageTest extends TestCase
         }
     }
 
+    public function testLockedVendorSuitesAreExcludedAndTwigRuntimeTestsRemain(): void
+    {
+        $lock = json_decode(file_get_contents(dirname(__DIR__, 2).'/composer.lock'), true, flags: JSON_THROW_ON_ERROR);
+        $packages = array_column($lock['packages'], 'name');
+        foreach (['symfony/service-contracts/Test/ServiceLocatorTest.php', 'symfony/translation-contracts/Test/TranslatorTest.php',
+            'symfony/framework-bundle/Test/KernelTestCase.php', 'monolog/monolog/src/Monolog/Test/MonologTestCase.php',
+            'twig/twig/src/Test/IntegrationTestCase.php', 'symfony/clock/Tests/Example.php'] as $path) {
+            self::assertFalse(\Disc2Release::allowed('vendor/'.$path, $packages), $path);
+        }
+        self::assertTrue(\Disc2Release::allowed('vendor/twig/twig/src/Node/Expression/Test/DefinedTest.php', $packages));
+    }
+
     public function testMissingRuntimeEntryFails(): void
     {
         $files = $this->stage();

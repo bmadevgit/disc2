@@ -15,39 +15,41 @@ use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationExc
 
 final class BmaDirectoryTest extends SyntheticDatabaseTestCase
 {
+    public function testExternalEndpointIsOptionalAndRejectsUnsafeDestinations(): void
+    {
+        $config = $this->directory.'/external.php';
+        self::assertSame('https://register.bangkok.go.th/bmamailadmin/web/index.php?r=api/getuserinfo', (new AuthSettings('prod', $config))->bmaEndpoint());
+        foreach (['http://stage.example/lookup', 'https://name:pw@stage.example/', 'https://stage.example/#key', "https://stage.example/\\other", "https://stage.example/\nheader"] as $url) {
+            file_put_contents($config, '<?php return '.var_export(['bma_endpoint'=>$url], true).';');
+            try {
+                new AuthSettings('prod', $config);
+                self::fail('Unsafe external endpoint accepted');
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('bma_endpoint', $e->getMessage());
+            }
+        }
+    }
+
     public function testDirectoryContractAndHttpLoginFailureLimit(): void
     {
-        file_put_contents($this->directory.'/config.php', "<?php return ['bma_secret_key' => 'synthetic-test-key'];");
-        file_put_contents($this->directory.'/index.php', <<<'PHP'
-            <?php
-            if (!isset($_GET['canonical'])) {
-                header('Location: /index.php?canonical=1', true, 307);
-                exit;
-            }
-            if ($_POST['Email'] === 'outage') {
-                http_response_code(503);
-                exit;
-            }
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST' || $_SERVER['CONTENT_TYPE'] !== 'application/x-www-form-urlencoded'
-                || $_SERVER['HTTP_ACCEPT'] !== 'application/json' || $_POST !== ['secretkey' => 'synthetic-test-key', 'Email' => 'staff']) {
-                http_response_code(400);
-                exit;
-            }
-            echo json_encode(['LdapPersonalID' => 'synthetic-id', 'UnitLevel1' => 'Synthetic unit']);
-            PHP);
-        $log = tmpfile();
-        $server = proc_open([PHP_BINARY, '-S', '127.0.0.1:0', '-t', $this->directory], [1 => $log, 2 => $log], $pipes);
+        $certFile = $this->directory.'/localhost.pem';
+        $keyFile = $this->directory.'/localhost.key';
+        $ini = $this->directory.'/openssl.cnf';
+        file_put_contents($ini, "[req]\ndistinguished_name=dn\n[dn]\n[extensions]\nsubjectAltName=IP:127.0.0.1\nbasicConstraints=CA:TRUE\n");
+        $options = ['config'=>$ini, 'digest_alg'=>'sha256', 'private_key_type'=>OPENSSL_KEYTYPE_RSA, 'private_key_bits'=>2048];
+        $key = openssl_pkey_new($options);
+        $csr = openssl_csr_new(['commonName'=>'localhost'], $key, $options);
+        openssl_x509_export_to_file(openssl_csr_sign($csr, null, $key, 1, $options + ['x509_extensions'=>'extensions']), $certFile);
+        openssl_pkey_export_to_file($key, $keyFile, null, $options);
+        $server = proc_open([PHP_BINARY, dirname(__DIR__, 2).'/Fixtures/bma-https-server.php', $certFile, $keyFile], [1=>['pipe','w'], 2=>STDERR], $pipes);
         self::assertIsResource($server);
         try {
-            for ($i = 0; $i < 100; ++$i) {
-                if (preg_match('~Development Server \((http://127\.0\.0\.1:\d+)\) started~', file_get_contents(stream_get_meta_data($log)['uri']), $match)) {
-                    break;
-                }
-                usleep(20000);
-            }
-            self::assertArrayHasKey(1, $match);
+            stream_set_timeout($pipes[1], 5);
+            $endpoint = trim(fgets($pipes[1])).'/index.php';
+            self::assertStringStartsWith('https://127.0.0.1:', $endpoint);
+            file_put_contents($this->directory.'/config.php', '<?php return '.var_export(['bma_secret_key'=>'synthetic-test-key', 'bma_endpoint'=>$endpoint], true).';');
             $settings = new AuthSettings('prod', $this->directory.'/config.php');
-            $api = new BmaApiDirectory($settings, $match[1].'/index.php');
+            $api = new BmaApiDirectory($settings, $certFile);
             self::assertSame(['LdapPersonalID' => 'synthetic-id', 'UnitLevel1' => 'Synthetic unit'], $api->lookup('staff'));
             $this->checkHttpFailureLimit($settings, $api);
             $this->expectException(CustomUserMessageAuthenticationException::class);
@@ -55,8 +57,8 @@ final class BmaDirectoryTest extends SyntheticDatabaseTestCase
             $api->lookup('outage');
         } finally {
             proc_terminate($server);
+            fclose($pipes[1]);
             proc_close($server);
-            fclose($log);
         }
     }
 
@@ -97,7 +99,7 @@ final class BmaDirectoryTest extends SyntheticDatabaseTestCase
 
     public function testMissingSecretFailsBeforeNetworkAccess(): void
     {
-        $api = new BmaApiDirectory(new AuthSettings('prod', $this->directory.'/absent.php'), 'http://127.0.0.1:1');
+        $api = new BmaApiDirectory(new AuthSettings('prod', $this->directory.'/absent.php'));
         $this->expectException(CustomUserMessageAuthenticationException::class);
         $this->expectExceptionMessage('ยังไม่ได้ตั้งค่าการเข้าสู่ระบบ BMA');
         $api->lookup('staff');

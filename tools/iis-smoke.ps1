@@ -4,6 +4,8 @@ param(
     [Parameter(Mandatory)][string]$Site,
     [Parameter(Mandatory)][uri]$BaseUri,
     [Parameter(Mandatory)][string]$Database,
+    [Parameter(Mandatory)][string]$ExpectedBmaEndpoint,
+    [switch]$Production,
     [string]$ConfigFile = 'C:\inetpub\private\disc2-config.php',
     [string]$Php = 'php.exe',
     [string]$AccessChk = 'accesschk.exe',
@@ -11,12 +13,19 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Import-Module WebAdministration
-Add-Type -AssemblyName System.Net.Http
+. (Join-Path $PSScriptRoot 'iis-policy.ps1')
 $root = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $mount = '/exam/disc2'
-if ($BaseUri.Scheme -notin 'https','http' -or $BaseUri.AbsolutePath.TrimEnd('/') -cne $mount -or $BaseUri.Query -or $BaseUri.Fragment) {
-    throw "Use the staging URL at $mount."
-}
+$bindings = @(foreach ($webSite in Get-Website) {
+    foreach ($binding in Get-WebBinding -Name $webSite.name -Protocol https) {
+        [pscustomobject]@{Site=$webSite.name; Info=$binding.bindingInformation}
+    }
+})
+$localAddresses = @([Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | ForEach-Object {
+    $_.GetIPProperties().UnicastAddresses | ForEach-Object { $_.Address.ToString() }
+})
+$resolvedAddresses = @([Net.Dns]::GetHostAddresses($BaseUri.DnsSafeHost) | ForEach-Object { $_.ToString() })
+$probeAddress = Resolve-Disc2Binding $BaseUri $Site $bindings $resolvedAddresses $localAddresses
 $app = @(Get-WebApplication -Site $Site | Where-Object { $_.path -eq $mount })
 if ($app.Count -ne 1 -or [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($app[0].physicalPath)).TrimEnd('\') -ne (Join-Path $root 'public')) {
     throw 'Check the IIS application physical path.'
@@ -68,13 +77,37 @@ foreach ($dir in 'var\cache','var\log','var\sessions') { Assert-Rights (Join-Pat
 $configPath = (Get-Item -LiteralPath $ConfigFile).FullName
 $dbPath = (Get-Item -LiteralPath $Database).FullName
 $dbDir = Split-Path -Parent $dbPath
-Read-Rights (Split-Path -Parent $configPath)
+$cfgDir = Split-Path -Parent $configPath
+foreach ($path in $configPath,$dbPath) {
+    $entry = Get-Item -LiteralPath $path
+    while ($entry) {
+        if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Select the direct external paths for physical ACL checks.' }
+        $entry = if ($entry -is [IO.FileInfo]) { $entry.Directory } else { $entry.Parent }
+    }
+}
+function Get-DetailedRights([string]$Path) {
+    $parent = Split-Path -Parent $Path
+    $lines = @(& $AccessChk -nobanner -v $principal $parent)
+    if ($LASTEXITCODE -ne 0) { throw "AccessChk failed at $parent" }
+    return Get-Disc2AccessFlags $lines $Path
+}
+$configFlags = @(Get-DetailedRights $configPath)
+$configParentFlags = @(Get-DetailedRights $cfgDir)
+$databaseFlags = @(Get-DetailedRights $dbDir)
+Assert-Disc2StorageRights $cfgDir $dbDir $configFlags $configParentFlags $databaseFlags
+Read-Rights (Split-Path -Parent $cfgDir)
+Read-Rights $cfgDir
 Read-Rights (Split-Path -Parent $dbDir)
 Read-Rights $dbDir
 Assert-Rights $configPath $false
+Assert-Rights $cfgDir $false
 Assert-Rights $dbPath $true
 Assert-Rights $dbDir $true
-& $phpPath (Join-Path $PSScriptRoot 'iis-preflight.php') $configPath $dbPath
+foreach ($suffix in '-wal','-shm') {
+    if (Test-Path -LiteralPath ($dbPath+$suffix)) { Assert-Rights ($dbPath+$suffix) $true }
+}
+$deployment = if ($Production) { 'production' } else { 'staging' }
+& $phpPath (Join-Path $PSScriptRoot 'iis-preflight.php') $configPath $dbPath $ExpectedBmaEndpoint $deployment
 if ($LASTEXITCODE -ne 0) { throw 'External database/configuration preflight failed.' }
 if ($ApplyMigrations) {
     & $phpPath (Join-Path $root 'bin\console') app:migrate --env=prod --no-debug --no-interaction
@@ -83,44 +116,6 @@ if ($ApplyMigrations) {
 & $phpPath (Join-Path $root 'bin\console') cache:warmup --env=prod --no-debug
 if ($LASTEXITCODE -ne 0) { throw 'Production cache warmup failed.' }
 
-$handler = New-Object System.Net.Http.HttpClientHandler
-$handler.AllowAutoRedirect = $false
-$client = New-Object System.Net.Http.HttpClient($handler)
-$client.BaseAddress = [uri]($BaseUri.AbsoluteUri.TrimEnd('/') + '/')
-function Request([string]$Path, [int[]]$Statuses, [string]$PostBody) {
-    if ($PostBody) {
-        $body = New-Object System.Net.Http.StringContent($PostBody, [Text.Encoding]::UTF8, 'application/x-www-form-urlencoded')
-        try { $reply = $client.PostAsync($Path, $body).GetAwaiter().GetResult() } finally { $body.Dispose() }
-    } else { $reply = $client.GetAsync($Path).GetAwaiter().GetResult() }
-    try {
-        if ([int]$reply.StatusCode -notin $Statuses) { throw "Unexpected HTTP $([int]$reply.StatusCode) at $Path" }
-        if ([int]$reply.StatusCode -eq 302) {
-            $location = [uri]::new($client.BaseAddress, $reply.Headers.Location)
-            if ($location.AbsoluteUri -cne ([uri]::new($client.BaseAddress, 'login.php')).AbsoluteUri) { throw 'Login redirect escaped the mount.' }
-        }
-        return $reply.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-    } finally { $reply.Dispose() }
-}
-try {
-    $login = Request 'login.php?login_type=admin' @(200)
-    if ($login -notmatch 'name="csrf" value="([^"]+)"' -or !$login.Contains('id="form-admin"') -or !$login.Contains("$mount/assets/login.css")) { throw 'Production login page or asset base failed.' }
-    $token = [regex]::Match($login, 'name="csrf" value="([^"]+)"').Groups[1].Value
-    $cookie = $handler.CookieContainer.GetCookies($client.BaseAddress)['DISC2SFSESSID']
-    if (!$cookie -or $cookie.Path -cne $mount -or !$cookie.HttpOnly -or $cookie.Secure -ne ($BaseUri.Scheme -eq 'https')) { throw 'Check session cookie scope and flags.' }
-    $null = Request 'case.php?id=1' @(302)
-    $null = Request 'logout.php' @(419) 'csrf=invalid'
-    $null = Request 'logout.php' @(302) ('csrf=' + [uri]::EscapeDataString($token))
-    foreach ($asset in 'login.css','login.js','uat.css','workflow.js') {
-        $response = $client.GetAsync("assets/$asset").GetAwaiter().GetResult()
-        try {
-            $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
-            $sha = [Security.Cryptography.SHA256]::Create()
-            try { $digest = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-','').ToLowerInvariant() } finally { $sha.Dispose() }
-            if ([int]$response.StatusCode -ne 200 -or $digest -ne $manifest.files."public/assets/$asset") { throw "Static asset mismatch: $asset" }
-        } finally { $response.Dispose() }
-    }
-    foreach ($private in 'vendor/autoload.php','config/services.yaml','templates/base.html.twig','tools/iis-preflight.php','runtime/disc2-dev.sqlite','.env','var/log/prod.log','migrations/001_uat.sql','web.config') {
-        $null = Request $private @(403,404)
-    }
-} finally { $client.Dispose() }
+& $phpPath (Join-Path $PSScriptRoot 'iis-http.php') $BaseUri.AbsoluteUri $probeAddress
+if ($LASTEXITCODE -ne 0) { throw 'Bound HTTPS smoke failed.' }
 Write-Output 'IIS smoke passed.'

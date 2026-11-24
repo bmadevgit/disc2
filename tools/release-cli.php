@@ -67,7 +67,7 @@ function build(string $tag, string $signer, string $output, ?string $composerPha
         mkdir($stage, 0700);
         $archive = $buildDir.'/source.zip';
         run(['git', 'archive', '--format=zip', '--output='.$archive, $commit, '--', 'bin', 'config', 'migrations', 'public', 'src', 'templates',
-            'tools/iis-smoke.ps1', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock'], $root);
+            'tools/iis-smoke.ps1', 'tools/iis-policy.ps1', 'tools/iis-http.php', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock'], $root);
         $zip = new ZipArchive();
         if ($zip->open($archive, ZipArchive::RDONLY) !== true) {
             throw new RuntimeException('Cannot read source archive.');
@@ -107,8 +107,12 @@ function build(string $tag, string $signer, string $output, ?string $composerPha
             $name = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($stage) + 1));
             if (Disc2Release::allowed($name, $packages)) {
                 $files[$name] = $file->getPathname();
+            } elseif (!$file->isDir()) {
+                // Regenerate the final authoritative map from the pruned clean stage.
+                unlink($file->getPathname());
             }
         }
+        run([...$composer, 'dump-autoload', '--no-dev', '--classmap-authoritative', '--no-interaction'], $stage);
         $built = $buildDir.'/release.zip';
         Disc2Release::pack($files, $built, $tag, $commit);
         Disc2Release::verify($built);
