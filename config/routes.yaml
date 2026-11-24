@@ -1,0 +1,7 @@
+# Exercise the IIS mount in tests until the first application routes are ready.
+when@test:
+    runtime_smoke:
+        path: /runtime-smoke
+        controller: Symfony\Bundle\FrameworkBundle\Controller\TemplateController
+        defaults: { template: base.html.twig }
+        methods: [GET]

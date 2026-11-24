@@ -35,7 +35,7 @@ flowchart TD
 การติดตั้ง PHP ในหัวข้อนี้ใช้สำหรับเปิดเว็บจาก PowerShell วิธี Docker Compose บน WSL 2 อยู่ในหัวข้อ 3
 
 1. แจ้ง GitHub username ให้ผู้ดูแล กด **Accept invitation** ด้วยบัญชีที่ถูกเชิญ แล้วเปิด [หน้ารายการไฟล์ของ DISC2](https://github.com/bmadevgit/disc2) ให้เห็น README
-2. ติดตั้ง [Git for Windows](https://gitforwindows.org/) พร้อม Git Credential Manager, [VS Code](https://code.visualstudio.com/) และ PHP 8.5 สำหรับ Windows ให้ `php.exe` อยู่ใน PATH ใช้ `php --ini` ดูว่า PHP อ่าน `php.ini` ไฟล์ใด แล้วเปิด `extension=pdo_sqlite` และ `extension=curl` ตามคู่มือ PHP [การติดตั้ง PHP บน Windows](https://www.php.net/manual/en/install.windows.php)
+2. ติดตั้ง [Git for Windows](https://gitforwindows.org/) พร้อม Git Credential Manager, [VS Code](https://code.visualstudio.com/) และ PHP 8.5 สำหรับ Windows ให้ `php.exe` อยู่ใน PATH ใช้ `php --ini` ดูว่า PHP อ่าน `php.ini` ไฟล์ใด ติดตั้ง Composer 2 และเปิดส่วนขยาย `pdo_sqlite`, `curl`, `mbstring` และ `intl` ตามคู่มือ PHP [การติดตั้ง PHP บน Windows](https://www.php.net/manual/en/install.windows.php)
 3. เปิด PowerShell ใหม่ ตรวจว่า `git --version` และ `php -v` ใช้งานได้ ถ้า Git เปิดหน้าล็อกอินระหว่าง clone หรือ push ให้เลือกบัญชี GitHub ที่กดรับคำเชิญ [การลงชื่อเข้า GitHub ด้วย Git Credential Manager](https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git)
 
 ## 2. Clone และเปิดโฟลเดอร์ที่ถูกต้อง
@@ -64,12 +64,13 @@ git config user.name "ชื่อของคุณ"
 git config user.email "อีเมล GitHub ของคุณ"
 php --ri pdo_sqlite
 php --ri curl
+composer install
 php tools/init.php
 powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
 ```
 
 - ชื่อและอีเมล Git ระบุผู้เขียน commit ใช้อีเมลที่ผูกกับ GitHub หรืออีเมล `noreply` ของบัญชีตน ส่วนการ clone หรือ push ใช้สิทธิ์บัญชี GitHub ที่ผู้ดูแลเชิญ
-- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` แล้วลองเข้าเว็บที่ `http://127.0.0.1:8760/` ด้วย `demo-owner` จะเห็นสำนวน `DEMO-001`
+- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` สำหรับชุดทดสอบระบบเดิม ส่วน Symfony ในระยะนี้ทดสอบการบูตด้วย `php vendor/bin/phpunit tests/Smoke`
 - ติดตั้ง **Codex** จากหน้า Extensions แล้วลงชื่อด้วยบัญชี ChatGPT ของตน ลองสั่ง “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับอย่างไร พร้อมทดสอบด้วยข้อมูลสมมติ” [คู่มือ Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide)
 - ถ้าพอร์ต 8760 ถูกใช้ เปลี่ยนพอร์ตในคำสั่งแล้วเปิด URL ด้วยหมายเลขเดียวกัน กด Ctrl+C เพื่อหยุดเว็บ เมื่อต้องปรับฐานทดสอบที่มีอยู่ด้วย migrations ใหม่ ให้รันจากรากโครงการดังนี้
 
@@ -91,6 +92,7 @@ docker info --format '{{.ServerVersion}}'
 docker compose version
 export DISC2_UID="$(id -u)" DISC2_GID="$(id -g)"
 docker compose build app
+docker compose run --rm app composer install --no-interaction
 ```
 
 สร้างฐานและบัญชีสมมติครั้งเดียวต่อสำเนาโครงการ ข้ามขั้นตอนนี้ถ้าสำเนานั้นมีฐานและบัญชีสมมติอยู่แล้ว
@@ -99,22 +101,30 @@ docker compose build app
 docker compose run --rm app php tools/init.php
 ```
 
-เริ่มเว็บแล้วดูรหัสผ่านของบัญชีสมมติ
+ตรวจ runtime และเริ่มเว็บ Symfony
 
 ```bash
+docker compose run --rm app vendor/bin/phpunit tests/Smoke
 docker compose up -d app
-cat runtime/demo-accounts.json
 ```
 
-โหมด Docker dev ใช้ bind mount จากโฟลเดอร์ที่สั่ง Compose ไปที่ `/app` โดยตรง ดังนั้นการแก้ไฟล์ใน WSL จะมีผลใน container ทันที ไม่ต้อง build image ใหม่
+โหมด Docker dev ใช้ bind mount จากโฟลเดอร์ที่สั่ง Compose ไปที่ `/app` โดยตรง ดังนั้นการแก้ไฟล์ใน WSL จะมีผลใน container ทันที ส่วน `/app/vendor` ใช้ named volume แยก เมื่อเปลี่ยน branch หรือ `composer.lock` ให้รัน `docker compose run --rm app composer install` อีกครั้ง
 
-เปิดเบราว์เซอร์ที่ `http://127.0.0.1:8760/` แล้วเข้าด้วย `demo-owner` เพื่อดูสำนวน `DEMO-001` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
+เว็บที่ `http://127.0.0.1:8760/` ใช้ `public/index.php` เป็น front controller ระยะตั้งต้นยังอยู่ระหว่างพัฒนาหน้าสำนวน ตรวจเส้นทางที่มีด้วย `docker compose exec app php bin/console debug:router` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
 
 หยุดเว็บจากรากโครงการด้วยคำสั่งด้านล่าง ฐานและบัญชีสมมติยังอยู่สำหรับการเปิดเว็บครั้งถัดไป
 
 ```bash
 docker compose down
 ```
+
+### IIS Server-A ที่ /exam/disc2
+
+เมื่อทดสอบบน staging ให้คง application alias `/exam/disc2` และโฟลเดอร์ติดตั้ง `C:\inetpub\wwwroot\exam\disc2` เปลี่ยน Physical Path ของ IIS application ครั้งเดียวเป็น `C:\inetpub\wwwroot\exam\disc2\public` ให้ IIS อ่าน `web.config` จากโฟลเดอร์นี้ ติดตั้ง IIS URL Rewrite และเปิด PHP FastCGI handler สำหรับ `index.php` กฎ rewrite ใช้เส้นทางสัมพัทธ์และส่ง query string ต่อให้ Symfony
+
+ใช้ PHP 8.2 ขึ้นไป พร้อม PDO SQLite, cURL, mbstring, intl และ OPcache ตั้ง `APP_ENV=prod`, `APP_DEBUG=0` และ `APP_SECRET` ส่วนตัวในสภาพแวดล้อมของ FastCGI และ CLI เก็บการตั้งค่าของ Server-A ที่ `C:\inetpub\private\disc2-config.php` กับฐาน SQLite ไว้นอก `public` ให้ application-pool identity อ่าน source/config/vendor และเขียน `var/cache`, `var/log` และ `var/sessions` ได้
+
+ตรวจด้วย `composer check-platform-reqs --no-dev` และ `php bin/console cache:warmup --env=prod --no-debug` ใน staging จากนั้นตรวจ HTTP ผ่าน IIS ที่ mount จริง ชุดทดสอบ `tests/Smoke/KernelBootTest.php` จำลอง FastCGI และตรวจไฟล์กฎสำหรับการพัฒนา
 
 ## 4. ส่งงานผ่าน Pull Request
 

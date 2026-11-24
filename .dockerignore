@@ -1,2 +1,2 @@
-# Compose bind-mounts the working tree. The image needs no project files.
+# Runtime-only image. Source is bind-mounted and vendor has its own volume.
 **

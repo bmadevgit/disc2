@@ -1,0 +1,21 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    default_locale: th
+    router:
+        utf8: true
+    session:
+        cookie_secure: auto
+        cookie_samesite: lax
+        save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
+    form: true
+    csrf_protection: true
+    validation: { enable_attributes: true }
+    assets: ~
+
+when@test:
+    framework:
+        test: true
+
+when@dev:
+    parameters:
+        env(APP_SECRET): synthetic-local-development

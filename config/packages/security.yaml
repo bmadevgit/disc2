@@ -1,0 +1,8 @@
+security:
+    providers:
+        scaffold:
+            memory: ~
+    firewalls:
+        main:
+            lazy: true
+            provider: scaffold
