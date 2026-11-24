@@ -124,6 +124,8 @@ docker compose down
 
 ใช้ PHP 8.2 ขึ้นไป พร้อม PDO SQLite, cURL, mbstring, intl และ OPcache ตั้ง `APP_ENV=prod`, `APP_DEBUG=0` และ `APP_SECRET` ส่วนตัวในสภาพแวดล้อมของ FastCGI และ CLI เก็บการตั้งค่าของ Server-A ที่ `C:\inetpub\private\disc2-config.php` กับฐาน SQLite ไว้นอก `public` ให้ application-pool identity อ่าน source/config/vendor และเขียน `var/cache`, `var/log` และ `var/sessions` ได้
 
+กำหนด `database_path` ใน array ที่ไฟล์ config ภายนอกส่งคืน ให้ชี้ไปยังไฟล์ฐาน SQLite เดิมด้วยพาธเต็ม หากจัดเก็บ config ที่อื่น ให้ตั้ง `DISC2_CONFIG_FILE` ให้ตรงกันใน FastCGI และ CLI เมื่อหยุดรับการเขียนและสำรองฐานแล้ว ให้รัน `php bin/console app:migrate --env=prod --no-debug` เพื่อใช้ migration ที่ค้างและตรวจความสมบูรณ์ของฐาน ส่วน dev/test ใช้ `runtime/disc2-dev.sqlite` ที่สร้างจาก `php tools/init.php`
+
 ตรวจด้วย `composer check-platform-reqs --no-dev` และ `php bin/console cache:warmup --env=prod --no-debug` ใน staging จากนั้นตรวจ HTTP ผ่าน IIS ที่ mount จริง ชุดทดสอบ `tests/Smoke/KernelBootTest.php` จำลอง FastCGI และตรวจไฟล์กฎสำหรับการพัฒนา
 
 ## 4. ส่งงานผ่าน Pull Request

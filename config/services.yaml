@@ -6,3 +6,20 @@ services:
     App\:
         resource: '../src/'
         exclude: '../src/Kernel.php'
+
+    App\Infrastructure\Persistence\ConnectionFactory:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+            $configFile: '%env(default:disc2.external_config:DISC2_CONFIG_FILE)%'
+
+    PDO:
+        class: PDO
+        factory: ['@App\Infrastructure\Persistence\ConnectionFactory', 'open']
+
+    App\Command\MigrateCommand:
+        arguments:
+            $migrationDirectory: '%kernel.project_dir%/migrations'
+
+parameters:
+    disc2.external_config: 'C:/inetpub/private/disc2-config.php'

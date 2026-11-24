@@ -9,8 +9,8 @@ final readonly class CaseAccess
     /** @param list<array{bma_personal_id: string, ended_at: ?string}> $ownerships Ownerships of this case. */
     public function __construct(
         public int $id,
-        public string $unit,
-        public string $group,
+        public ?string $unit,
+        public ?string $group,
         private array $ownerships,
     ) {
     }
