@@ -1,0 +1,35 @@
+<section class="card">
+    <h2 class="section-title">ชั้นสอบสวนทางวินัย</h2>
+    {% if not hasGrounds and not tracks %}
+        <div class="notice warn">ต้องบันทึกผล “มีมูล” ในหน้าสืบสวนก่อน
+        </div>
+    {% endif %}
+    {% if edit and unassigned %}
+        <form method="post" action="{{ app.request.basePath ~ '/save_case.php' }}" class="grid">
+            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+            <input type="hidden" name="action" value="assign_discipline">
+            <input type="hidden" name="case_id" value="{{ id }}">
+            {% for s in unassigned %}
+                <div>
+                    <label>{{ s.label }}
+                    <select name="track_for[{{ s.id }}]">
+                        <option value="">ยังไม่กำหนด</option>
+                        <option value="discipline_nonserious" {{ s.severity=='nonserious'?'selected':'' }}>ไม่ร้ายแรง</option>
+                        <option value="discipline_serious" {{ s.severity=='serious'?'selected':'' }}>ร้ายแรง</option>
+                    </select>
+                    </label>
+                </div>
+            {% endfor %}
+            <div class="actions wide">
+                <button class="btn green">บันทึกประเภทการสอบสวน</button>
+            </div>
+        </form>
+    {% endif %}
+    {% for track in tracks %}
+        <div class="subject">
+            <h3>{{ track|track_title }}</h3>
+            <a class="btn small" href="{{ path('discipline_track',{case_id:track.case_id, type:track.track_type, track_id:track.id}) }}">กำหนดเวลา คำสั่ง และการขยายเวลา</a>
+            <a class="btn small" href="{{ path('discipline_results',{case_id:track.case_id, type:track.track_type, track_id:track.id}) }}">ผลการสอบสวนรายบุคคล</a>
+        </div>
+    {% endfor %}
+</section>

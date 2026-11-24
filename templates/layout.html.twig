@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+{% block head %}
+    <link rel="stylesheet" href="{{ asset('assets/uat.css') }}?v=profile-menu">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+{% block body %}
+    {% set role = app.user.scope.role.value %}
+    {% set isAdmin = is_granted('DISC_ADMIN') %}
+    {% set identity = isAdmin %}
+    <nav>
+        <div class="nav-shell">
+            <a class="brand" href="{{ path('case_index') }}">⚖️ DISC UAT</a>
+            <div class="nav-links">
+                <a href="{{ path('case_index') }}">หน้าหลัก</a>
+                {% if isAdmin %}
+                    <a href="{{ path('dashboard') }}">Dashboard</a>
+                {% endif %}
+            </div>
+            <div class="nav-account">
+                <details class="profile-menu">
+                    <summary><span class="profile-avatar" aria-hidden="true">👤</span><span class="profile-name">{{ app.user.name }}</span><span class="profile-caret" aria-hidden="true"></span></summary>
+                    <div class="profile-dropdown">
+                        <div class="profile-meta">
+                            <strong>{{ app.user.name }}</strong><span>{{ app.user.local and isAdmin ? 'admin' : 'user' }}</span>
+                        </div>
+                        <a href="{{ path('case_index') }}">หน้าหลัก</a><a class="profile-logout" href="{{ path('logout') }}">ออกจากระบบ</a>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
+    <script>
+        if (typeof flatpickr === 'function') {
+            const displayYear = (_, __, picker) => {
+                const field = picker.calendarContainer.querySelector('.cur-year');
+                if (field) {
+                    field.value = picker.currentYear + 543;
+                    field.readOnly = true;
+                }
+            };
+            flatpickr('input[type=date]:not([name=start_date])', {
+                locale: 'th',
+                dateFormat: 'Y-m-d',
+                altInput: true,
+                altFormat: 'j F Y',
+                disableMobile: true,
+                formatDate(date, format, locale) {
+                    if (format === 'j F Y') {
+                        return date.getDate() + ' ' + locale.months.longhand[date.getMonth()] + ' ' + (date.getFullYear() + 543);
+                    }
+                    return flatpickr.formatDate(date, format, locale);
+                },
+                onReady: displayYear,
+                onMonthChange: displayYear
+            });
+        }
+    </script>
+{% endblock %}

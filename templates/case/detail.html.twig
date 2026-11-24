@@ -1,0 +1,32 @@
+{% extends 'layout.html.twig' %}
+{% block title %}สำนวน {{ case['เลขที่สำนวน'] ?: '#' ~ id }} · DISC{% endblock %}
+{% block content %}
+    <section class="card hero">
+        <div>
+            <a href="{{ path('case_index') }}">← รายการสำนวน</a>
+            <h1 class="section-title" style="margin-top:10px">สำนวน {{ case['เลขที่สำนวน']?:'#' ~ id }}</h1>
+            <div class="muted">หน่วยงานที่รับผิดชอบ: {{ case.responsible_unit?:case['หน่วยงานต้นเรื่อง'] }}
+            </div>
+        </div>
+        <div>
+            <span class="pill">{{ edit ? "แก้ไขได้" : "อ่านอย่างเดียว" }}</span>
+        </div>
+    </section>
+    {% if app.request.query.has('saved') %}
+        <div class="notice">บันทึกข้อมูล UAT แล้ว
+        </div>
+    {% endif %}
+    {% if not subjects %}
+        <div class="notice warn">ข้อมูลเดิมยังไม่มีผู้ถูกกล่าวหารายบุคคล กรุณาเพิ่มในหน้า 1 ก่อนดำเนินขั้นตอนถัดไป
+        </div>
+    {% endif %}
+    <div class="tabs">
+        {% for n, label in {1:'1 ข้อมูลสำนวน',2:'2 สืบสวนข้อเท็จจริง',3:'3 สอบสวนทางวินัย',4:'4 คำสั่ง/รายงาน ก.ก.'} %}
+            <a class="{{ page==n?'active':'' }}" href="{{ path('case_detail', {id: id, page: n}) }}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    {% include 'case/tab' ~ page ~ '.html.twig' %}
+    {% if page != 4 %}
+        <script src="{{ asset('assets/workflow.js') }}" defer></script>
+    {% endif %}
+{% endblock %}

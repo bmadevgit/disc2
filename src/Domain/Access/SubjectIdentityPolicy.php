@@ -14,13 +14,7 @@ final class SubjectIdentityPolicy
         if ($case->id !== $subject->caseId || !$scope->canRead($case)) {
             return null;
         }
-        if ($scope->canAdminister()) {
-            $name = trim("$subject->title $subject->firstName $subject->lastName");
-            if ($name !== '') {
-                return $name;
-            }
-        }
-        return $subject->reference !== '' ? $subject->reference : 'ผู้ถูกกล่าวหารายที่ '.($subject->sequence ?? $subject->subjectId);
+        return $subject->displayLabel($scope->canAdminister());
     }
 
     public function matches(CaseScope $scope, CaseAccess $case, SubjectIdentity $subject, string $term): bool

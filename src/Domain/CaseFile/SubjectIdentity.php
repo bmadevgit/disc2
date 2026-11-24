@@ -16,4 +16,15 @@ final readonly class SubjectIdentity
         public string $lastName,
     ) {
     }
+
+    public function displayLabel(bool $identity): string
+    {
+        if ($identity) {
+            $name = trim("$this->title $this->firstName $this->lastName");
+            if ($name !== '') {
+                return $name;
+            }
+        }
+        return $this->reference !== '' ? $this->reference : 'ผู้ถูกกล่าวหารายที่ '.($this->sequence ?? $this->subjectId);
+    }
 }

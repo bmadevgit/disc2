@@ -1,0 +1,19 @@
+{% set selected = case.case_type ?? '' %}
+{% set types = ['ทุจริตและผลประโยชน์ทับซ้อน','จัดซื้อจัดจ้างและพัสดุ','การอนุญาตหรือควบคุมอาคารและผังเมือง','การจัดเก็บรายได้และภาษี','การเงินและบัญชี','งานบริการสาธารณะเฉพาะด้าน','ปฏิบัติหน้าที่บกพร่องหรือละเลย','ความประพฤติส่วนบุคคล','เกี่ยวเนื่องกับคดีอาญา','การบริหารงานบุคคล','วินัยการปฏิบัติราชการทั่วไป','อื่นๆ'] %}
+{% if selected and selected not in types %}
+    {% set types = types|merge([selected]) %}
+{% endif %}
+<div>
+    <label>ประเภทสำนวน
+    <select name="case_type">
+        <option value="">ยังไม่ระบุ</option>
+        {% for type in types %}
+            <option {{ type == selected ? 'selected' : '' }}>{{ type }}</option>
+        {% endfor %}
+    </select>
+    </label>
+</div>
+<div>
+    <label>รายละเอียดประเภทกรณีเลือก “อื่น ๆ”
+    <input name="case_type_other" value="{{ case.case_type_other ?? '' }}"></label>
+</div>

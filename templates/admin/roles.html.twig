@@ -1,0 +1,70 @@
+{% extends 'layout.html.twig' %}
+{% block title %}จัดการสิทธิ์ UAT · DISC{% endblock %}
+{% block content %}
+    <section class="card">
+        <a href="{{ path('dashboard') }}">← Dashboard</a>
+        <h1 class="section-title" style="margin-top:10px">กำหนดสิทธิ์ผู้ใช้</h1>
+        <form method="post" class="grid">
+            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+            <div>
+                <label>เลขประจำตัวประชาชน</label>
+                <input name="personal_id" required>
+            </div>
+            <div>
+                <label>ชื่อแสดงผล</label>
+                <input name="display_name">
+            </div>
+            <div>
+                <label>Role</label>
+                <select name="access_role">
+                    <option value="executive">ผู้บริหารระดับสูง</option>
+                    <option value="unit_head">หัวหน้าหน่วยงาน</option>
+                    <option value="group_head">หัวหน้าฝ่าย/กลุ่มงาน</option>
+                    <option value="case_owner">นิติกรเจ้าของสำนวน</option>
+                </select>
+            </div>
+            <div>
+                <label>UnitLevel1</label>
+                <input name="unit_level1">
+            </div>
+            <div>
+                <label>UnitLevel2/กลุ่มงาน</label>
+                <input name="unit_level2">
+            </div>
+            <div>
+                <label>
+                <input type="checkbox" name="active" checked style="width:auto"> เปิดใช้งาน</label>
+            </div>
+            <div class="actions">
+                <button class="btn green">บันทึกสิทธิ์</button>
+            </div>
+        </form>
+    </section>
+    <section class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>ชื่อ</th>
+                    <th>Role</th>
+                    <th>UnitLevel1</th>
+                    <th>กลุ่มงาน</th>
+                    <th>สถานะ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                    <tr>
+                        <td>{{ r.display_name }}
+                        <div class="muted">{{ r.bma_personal_id }}
+                        </div>
+                        </td>
+                        <td>{{ r.access_role }}</td>
+                        <td>{{ r.unit_level1 }}</td>
+                        <td>{{ r.unit_level2 }}</td>
+                        <td>{{ r.active?'ใช้งาน':'ปิด' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

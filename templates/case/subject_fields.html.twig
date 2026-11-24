@@ -1,0 +1,41 @@
+{% set existing = subject.id is defined %}
+{% set masked = existing and not identity %}
+{% set name = 'subjects[' ~ index ~ ']' %}
+<div class="subject">
+    {% if masked %}<b>{{ subject.label }}</b>{% endif %}
+    {% if existing %}<input type="hidden" name="{{ name }}[id]" value="{{ subject.id }}">{% endif %}
+    <div class="grid">
+        <div hidden><label>คำนำหน้า<input name="{{ name }}[title]" value="{{ subject.title_th ?? '' }}" {{ masked ? 'disabled' }}></label></div>
+        <div><label>ชื่อ<input name="{{ name }}[first]" value="{{ subject.first_name_th ?? '' }}" {{ masked ? 'disabled' : 'required' }}></label></div>
+        <div><label>นามสกุล<input name="{{ name }}[last]" value="{{ subject.last_name_th ?? '' }}" {{ masked ? 'disabled' }}></label></div>
+        <div hidden><label>ตำแหน่ง<input name="{{ name }}[position]" value="{{ subject.position_name ?? '' }}" {{ masked ? 'disabled' }}></label></div>
+        <div><label>ประเภทบุคลากร
+            <select name="{{ name }}[employment]">
+                <option value="">-- เลือก --</option>
+                {% for value in ['ข้าราชการกรุงเทพมหานครสามัญ','ข้าราชการครูและบุคลากรทางการศึกษากรุงเทพมหานคร','ข้าราชการในสถาบันอุดมศึกษา','พนักงานราชการกรุงเทพมหานคร','ลูกจ้าง'] %}
+                    <option {{ (subject.employment_type ?? '') == value ? 'selected' }}>{{ value }}</option>
+                {% endfor %}
+            </select>
+        </label></div>
+        <div><label>สถานะปัจจุบัน
+            {% set statuses = ['ปฏิบัติงานอยู่','พ้นจากราชการ/พ้นจากงาน','เกษียณอายุ','ลาออก'] %}
+            <select name="{{ name }}[status]">
+                {% if existing %}
+                    <option value="">-- ไม่เปลี่ยน --</option>
+                    {% set statuses = statuses|merge(['ถูกเลิกจ้าง/ปลดออก/ไล่ออก']) %}
+                {% endif %}
+                {% for status in statuses %}
+                    <option {{ (subject.current_status ?? '') == status ? 'selected' }}>{{ status }}</option>
+                {% endfor %}
+            </select>
+        </label></div>
+        {% if existing %}
+            <div><label>วันที่มีผล<input type="date" name="{{ name }}[status_date]"></label></div>
+            <div><label>เหตุผล/หมายเหตุ<input name="{{ name }}[status_reason]"></label></div>
+        {% endif %}
+        <div><label>เลขบัตรประชาชนผู้ถูกกล่าวหา
+            <input inputmode="numeric" maxlength="13" pattern="[0-9]{13}" name="{{ name }}[national_id]"
+                   value="{{ subject.national_id ?? '' }}" placeholder="13 หลัก" {{ masked ? 'disabled' }}>
+        </label></div>
+    </div>
+</div>
