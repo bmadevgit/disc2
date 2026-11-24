@@ -5,7 +5,8 @@ if (PHP_SAPI !== 'cli') {
 }
 require dirname(__DIR__).'/migrate.php';
 
-$runtime = dirname(__DIR__).'/runtime';
+// The characterization runner supplies a private directory for each synthetic database.
+$runtime = $argv[1] ?? dirname(__DIR__).'/runtime';
 $dbPath = $runtime.'/disc2-dev.sqlite';
 $credentialsPath = $runtime.'/demo-accounts.json';
 date_default_timezone_set('Asia/Bangkok');
@@ -74,7 +75,7 @@ try {
         unlink($credentialsPath);
         throw new RuntimeException('Could not publish the demo database.');
     }
-    echo "Demo data is ready. Open runtime/demo-accounts.json for your test logins.\n";
+    echo isset($argv[1]) ? "Synthetic database initialized.\n" : "Demo data is ready. Open runtime/demo-accounts.json for your test logins.\n";
 } catch (Throwable $error) {
     fwrite(STDERR,$error->getMessage().PHP_EOL);
     $failed = true;
