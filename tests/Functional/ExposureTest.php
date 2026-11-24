@@ -31,7 +31,7 @@ final class ExposureTest extends TestCase
             $client = curl_init();
             curl_setopt_array($client, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>10]);
             foreach ([...self::INTERNAL, 'src/Kernel.php', 'config/services.yaml', 'config/bundles.php', 'templates/base.html.twig',
-                'vendor/autoload.php', 'tools/init.php', 'tools/base-schema.sql', 'bin/console', 'tests/Legacy/run.php',
+                'vendor/autoload.php', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'tools/init.php', 'tools/base-schema.sql', 'bin/console', 'tests/Legacy/run.php',
                 'migrations/001_uat.sql', 'runtime/disc2-dev.sqlite', 'runtime/disc2-dev.sqlite-wal', 'runtime/demo-accounts.json',
                 'private/disc2-ai.php', 'var/log/prod.log', '.git/config', '.env', 'composer.lock', 'web.config',
                 'assets/database.sqlite', 'assets/config.php', '_test/security/1', 'runtime-smoke'] as $path) {
@@ -70,6 +70,9 @@ final class ExposureTest extends TestCase
             'src/Application/Auth/AuthSettings.php'=>['$configFile'],
             'src/Application/Query/DashboardAssistant.php'=>['$this->configFile'],
             'src/Infrastructure/Persistence/ConnectionFactory.php'=>['$this->configFile'],
+            'tools/iis-preflight.php'=>['$config', "\$root.'/vendor/autoload.php'"],
+            'tools/release-cli.php'=>["__DIR__.'/release-package.php'"],
+            'tools/rollback-proof.php'=>['$entry'],
             'tools/dev-router.php'=>["dirname(__DIR__).'/public/index.php'"],
             'tools/init.php'=>["dirname(__DIR__).'/vendor/autoload.php'"],
         ];

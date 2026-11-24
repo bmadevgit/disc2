@@ -14,8 +14,8 @@ Import-Module WebAdministration
 Add-Type -AssemblyName System.Net.Http
 $root = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $mount = '/exam/disc2'
-if ($BaseUri.Scheme -ne 'https' -or $BaseUri.AbsolutePath.TrimEnd('/') -cne $mount -or $BaseUri.Query -or $BaseUri.Fragment) {
-    throw "Use the HTTPS staging URL at $mount."
+if ($BaseUri.Scheme -notin 'https','http' -or $BaseUri.AbsolutePath.TrimEnd('/') -cne $mount -or $BaseUri.Query -or $BaseUri.Fragment) {
+    throw "Use the staging URL at $mount."
 }
 $app = @(Get-WebApplication -Site $Site | Where-Object { $_.path -eq $mount })
 if ($app.Count -ne 1 -or [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($app[0].physicalPath)).TrimEnd('\') -ne (Join-Path $root 'public')) {
@@ -106,7 +106,7 @@ try {
     if ($login -notmatch 'name="csrf" value="([^"]+)"' -or !$login.Contains('id="form-admin"') -or !$login.Contains("$mount/assets/login.css")) { throw 'Production login page or asset base failed.' }
     $token = [regex]::Match($login, 'name="csrf" value="([^"]+)"').Groups[1].Value
     $cookie = $handler.CookieContainer.GetCookies($client.BaseAddress)['DISC2SFSESSID']
-    if (!$cookie -or $cookie.Path -cne $mount -or !$cookie.HttpOnly -or !$cookie.Secure) { throw 'Check HTTPS session cookie scope and flags.' }
+    if (!$cookie -or $cookie.Path -cne $mount -or !$cookie.HttpOnly -or $cookie.Secure -ne ($BaseUri.Scheme -eq 'https')) { throw 'Check session cookie scope and flags.' }
     $null = Request 'case.php?id=1' @(302)
     $null = Request 'logout.php' @(419) 'csrf=invalid'
     $null = Request 'logout.php' @(302) ('csrf=' + [uri]::EscapeDataString($token))

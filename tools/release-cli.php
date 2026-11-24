@@ -41,7 +41,7 @@ function build(string $tag, string $signer, string $output, ?string $composerPha
     }
     $root = dirname(__DIR__);
     $object = run(['git', 'rev-parse', '--verify', "refs/tags/$tag^{tag}"], $root, true);
-    // --format prints GPG details for commits, not tags. Git sends verify-tag --raw status to stderr.
+    // Git sends its machine-readable signature status to stderr.
     $proc = proc_open(['git', 'verify-tag', '--raw', $object], [0 => STDIN, 1 => STDOUT, 2 => ['pipe','w']], $pipes, $root);
     $status = stream_get_contents($pipes[2]);
     fclose($pipes[2]);
@@ -118,7 +118,9 @@ function build(string $tag, string $signer, string $output, ?string $composerPha
             throw new RuntimeException('Cannot unpack release for validation.');
         }
         $zip->close();
-        run([PHP_BINARY, '-r', 'exit((require "vendor/autoload.php")->isClassMapAuthoritative() ? 0 : 1);'], $check);
+        run([PHP_BINARY, '-r', '$loader = require "vendor/autoload.php";
+            if (!$loader->isClassMapAuthoritative()) { exit(1); }
+            foreach ($loader->getClassMap() as $path) { if (!is_file($path)) { exit(1); } }'], $check);
         $console = [PHP_BINARY, 'bin/console', '--env=prod', '--no-debug'];
         run([...$console, 'lint:container', '--resolve-env-vars'], $check);
         run([...$console, 'cache:warmup'], $check);

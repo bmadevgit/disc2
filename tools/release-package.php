@@ -14,7 +14,7 @@ final class Disc2Release
         'vendor/composer/autoload_classmap.php', 'vendor/composer/installed.php', 'vendor/composer/installed.json',
         'tools/iis-smoke.ps1', 'tools/iis-preflight.php', 'tools/rollback-proof.php', 'composer.json', 'composer.lock',
     ];
-    public const EXTENSIONS = ['curl', 'intl', 'mbstring', 'pdo_sqlite', 'Zend OPcache'];
+    public const EXTENSIONS = ['curl', 'iconv', 'intl', 'mbstring', 'pdo_sqlite', 'session', 'xml', 'Zend OPcache'];
     public const MANIFEST = 'release-manifest.json';
 
     public static function portableName(string $name): bool
@@ -36,7 +36,7 @@ final class Disc2Release
         if (in_array($name, self::REQUIRED, true)) {
             return true;
         }
-        if (preg_match('~^(?:src/[\w/]+\.php|templates/[\w/.-]+\.twig|migrations/\d+_[a-z0-9_]+\.sql|config/packages/[a-z0-9_-]+\.yaml)$~D', $name)) {
+        if (preg_match('~^(?:src/[\w/]+\.php|templates/[\w/.-]+\.twig|migrations/\d+_[a-z0-9_]+\.sql)$~D', $name)) {
             return true;
         }
         if (!str_starts_with($name, 'vendor/')) {
@@ -69,7 +69,8 @@ final class Disc2Release
 
     private static function validateNames(array $names, array $packages): void
     {
-        $missing = array_diff(self::REQUIRED, $names);
+        $packageManifests = array_map(static fn (string $package): string => "vendor/$package/composer.json", $packages);
+        $missing = array_diff([...self::REQUIRED, ...$packageManifests], $names);
         if ($missing) {
             throw new RuntimeException('Missing release files: '.implode(', ', $missing));
         }

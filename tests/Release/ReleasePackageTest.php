@@ -106,6 +106,7 @@ final class ReleasePackageTest extends TestCase
         $pkg = ['name'=>'acme/pkg', 'version'=>'1.0','dist'=>['reference'=>'abc']];
         file_put_contents($files['composer.lock'], json_encode(['packages'=>[$pkg], 'packages-dev'=>[['name'=>'dev/tests']]]));
         file_put_contents($files['vendor/composer/installed.json'], json_encode(['dev'=>false,'packages'=>[$pkg]]));
+        $files['vendor/acme/pkg/composer.json'] = $files['composer.json'];
         $files['vendor/acme/pkg/Library.php'] = __FILE__;
         return $files;
     }

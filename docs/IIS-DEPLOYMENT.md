@@ -4,7 +4,7 @@ Keep the previous code, its external configuration, its IIS application settings
 
 ## Build and verify
 
-Use a reviewed checkout and an annotated OpenPGP-signed version tag. Obtain the approved primary or signing-key fingerprint through the release approval channel. The builder needs Git with GPG, Composer 2, PHP 8.2 or later, ext-zip, PDO SQLite, cURL, intl, mbstring and OPcache. Use an NTFS or Linux filesystem with hard-link support for the output directory. Keep PHP, Composer, libzip, zlib, Git and timezone fixed across reproducibility comparisons. The installer downloads the distribution files pinned in `composer.lock`.
+Use a reviewed checkout and an annotated OpenPGP-signed version tag. Obtain the approved primary or signing-key fingerprint through the release approval channel. The builder needs Git with GPG, Composer 2, PHP 8.2 or later, ext-zip, PDO SQLite, cURL, iconv, intl, mbstring, sessions, XML and OPcache. Use an NTFS or Linux filesystem with hard-link support for the output directory. Keep PHP, Composer, libzip, zlib, Git and timezone fixed across reproducibility comparisons. The installer downloads the distribution files pinned in `composer.lock`.
 
 ```powershell
 .\tools\release.ps1 -Tag $tag -SignerFingerprint $approvedFingerprint -Output D:\releases\disc2.zip
