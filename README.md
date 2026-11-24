@@ -52,7 +52,7 @@ git remote get-url origin
 code .
 ```
 
-ผลของ `git remote get-url origin` ควรเป็น `https://github.com/bmadevgit/disc2.git` หากคำสั่ง `code .` ยังใช้ไม่ได้ เปิด VS Code แล้วเลือก **File → Open Folder** ไปที่ `%USERPROFILE%\dev\disc2` โฟลเดอร์ที่ถูกต้องมี `README.md`, `AGENTS.md`, `index.php` และโฟลเดอร์ `tools` [คู่มือ clone ของ GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
+ผลของ `git remote get-url origin` ควรเป็น `https://github.com/bmadevgit/disc2.git` หากคำสั่ง `code .` ยังใช้ไม่ได้ เปิด VS Code แล้วเลือก **File → Open Folder** ไปที่ `%USERPROFILE%\dev\disc2` โฟลเดอร์ที่ถูกต้องมี `README.md`, `AGENTS.md`, `public/index.php` และโฟลเดอร์ `tools` [คู่มือ clone ของ GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
 
 ## 3. ตั้งชื่อ commit เปิดเว็บ และใช้ Codex
 
@@ -70,13 +70,12 @@ powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
 ```
 
 - ชื่อและอีเมล Git ระบุผู้เขียน commit ใช้อีเมลที่ผูกกับ GitHub หรืออีเมล `noreply` ของบัญชีตน ส่วนการ clone หรือ push ใช้สิทธิ์บัญชี GitHub ที่ผู้ดูแลเชิญ
-- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` สำหรับชุดทดสอบระบบเดิม ส่วน Symfony ในระยะนี้ทดสอบการบูตด้วย `php vendor/bin/phpunit tests/Smoke`
+- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` สำหรับเว็บทดสอบ Symfony รันชุดทดสอบด้วย `php vendor/bin/phpunit`
 - ติดตั้ง **Codex** จากหน้า Extensions แล้วลงชื่อด้วยบัญชี ChatGPT ของตน ลองสั่ง “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับอย่างไร พร้อมทดสอบด้วยข้อมูลสมมติ” [คู่มือ Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide)
 - ถ้าพอร์ต 8760 ถูกใช้ เปลี่ยนพอร์ตในคำสั่งแล้วเปิด URL ด้วยหมายเลขเดียวกัน กด Ctrl+C เพื่อหยุดเว็บ เมื่อต้องปรับฐานทดสอบที่มีอยู่ด้วย migrations ใหม่ ให้รันจากรากโครงการดังนี้
 
 ```powershell
-$env:DISC2_DEV = '1'
-try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
+php bin/console app:migrate --env=dev
 ```
 
 ### เปิดเว็บด้วย Docker Compose บน WSL 2
@@ -110,7 +109,7 @@ docker compose up -d app
 
 โหมด Docker dev ใช้ bind mount จากโฟลเดอร์ที่สั่ง Compose ไปที่ `/app` โดยตรง ดังนั้นการแก้ไฟล์ใน WSL จะมีผลใน container ทันที ส่วน `/app/vendor` ใช้ named volume แยก เมื่อเปลี่ยน branch หรือ `composer.lock` ให้รัน `docker compose run --rm app composer install` อีกครั้ง
 
-เว็บที่ `http://127.0.0.1:8760/` ใช้ `public/index.php` เป็น front controller ระยะตั้งต้นยังอยู่ระหว่างพัฒนาหน้าสำนวน ตรวจเส้นทางที่มีด้วย `docker compose exec app php bin/console debug:router` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
+เว็บที่ `http://127.0.0.1:8760/` ใช้ `public/index.php` เป็น front controller ตรวจเส้นทางที่มีด้วย `docker compose exec app php bin/console debug:router` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
 
 หยุดเว็บจากรากโครงการด้วยคำสั่งด้านล่าง ฐานและบัญชีสมมติยังอยู่สำหรับการเปิดเว็บครั้งถัดไป
 
@@ -123,6 +122,8 @@ docker compose down
 เมื่อทดสอบบน staging ให้คง application alias `/exam/disc2` และโฟลเดอร์ติดตั้ง `C:\inetpub\wwwroot\exam\disc2` เปลี่ยน Physical Path ของ IIS application ครั้งเดียวเป็น `C:\inetpub\wwwroot\exam\disc2\public` ให้ IIS อ่าน `web.config` จากโฟลเดอร์นี้ ติดตั้ง IIS URL Rewrite และเปิด PHP FastCGI handler สำหรับ `index.php` กฎ rewrite ใช้เส้นทางสัมพัทธ์และส่ง query string ต่อให้ Symfony
 
 ใช้ PHP 8.2 ขึ้นไป พร้อม PDO SQLite, cURL, mbstring, intl และ OPcache ตั้ง `APP_ENV=prod`, `APP_DEBUG=0` และ `APP_SECRET` ส่วนตัวในสภาพแวดล้อมของ FastCGI และ CLI เก็บการตั้งค่าของ Server-A ที่ `C:\inetpub\private\disc2-config.php` กับฐาน SQLite ไว้นอก `public` ให้ application-pool identity อ่าน source/config/vendor และเขียน `var/cache`, `var/log` และ `var/sessions` ได้
+
+ผู้ช่วย AI สำหรับผู้ดูแลใช้ไฟล์ `C:\inetpub\private\disc2-ai.php` หรือพาธจาก `DISC2_AI_CONFIG_FILE` ไฟล์นี้คืนค่า array ที่มี `base_url`, `api_key` และ `model` หน้า Dashboard ส่งเฉพาะจำนวนรวมและสถิติกำหนดเวลา โหมด dev/test ปิดการเรียก Gateway
 
 กำหนด `database_path` ใน array ที่ไฟล์ config ภายนอกส่งคืน ให้ชี้ไปยังไฟล์ฐาน SQLite เดิมด้วยพาธเต็ม หากจัดเก็บ config ที่อื่น ให้ตั้ง `DISC2_CONFIG_FILE` ให้ตรงกันใน FastCGI และ CLI เมื่อหยุดรับการเขียนและสำรองฐานแล้ว ให้รัน `php bin/console app:migrate --env=prod --no-debug` เพื่อใช้ migration ที่ค้างและตรวจความสมบูรณ์ของฐาน ส่วน dev/test ใช้ `runtime/disc2-dev.sqlite` ที่สร้างจาก `php tools/init.php`
 
@@ -143,13 +144,13 @@ git switch -c feature/case-filter
 ```powershell
 git status --short
 git diff
-git add -- index.php
+git add -- public/index.php
 git diff --cached
 git commit -m "ปรับตัวกรองสำนวน"
 git push -u origin feature/case-filter
 ```
 
-บรรทัด `git add -- index.php` เป็นตัวอย่าง ให้แทนชื่อไฟล์ตามงาน จากนั้นเปิด GitHub กด **Compare & pull request** หรือ **Pull requests → New pull request** เลือก **base** เป็น `main` และ **compare** เป็น `feature/case-filter` ระบุสิ่งที่แก้และวิธีทดสอบ แล้วกด **Create pull request** ผู้ดูแลเป็นคนรวมงาน เมื่อมีขอแก้เพิ่ม ให้ commit แล้ว push จาก branch เดิมเพื่ออัปเดต PR เดิม เมื่อรวมเสร็จ ให้ดึง `main` ล่าสุดก่อนเริ่มงานถัดไป
+บรรทัด `git add -- public/index.php` เป็นตัวอย่าง ให้แทนชื่อไฟล์ตามงาน จากนั้นเปิด GitHub กด **Compare & pull request** หรือ **Pull requests → New pull request** เลือก **base** เป็น `main` และ **compare** เป็น `feature/case-filter` ระบุสิ่งที่แก้และวิธีทดสอบ แล้วกด **Create pull request** ผู้ดูแลเป็นคนรวมงาน เมื่อมีขอแก้เพิ่ม ให้ commit แล้ว push จาก branch เดิมเพื่ออัปเดต PR เดิม เมื่อรวมเสร็จ ให้ดึง `main` ล่าสุดก่อนเริ่มงานถัดไป
 
 ## เคยเริ่มด้วย Git bundle อยู่แล้ว
 
@@ -166,5 +167,5 @@ git remote get-url origin
 ### ไฟล์อ้างอิงของ DISC2
 
 - `AGENTS.md` บริบทให้ Codex · `index.php` หน้ารายการ · `case.php` หน้าสำนวน
-- `workflow.php` และ `workflow.js` กติกาคำนวณวัน · `migrations/` ไฟล์ปรับโครงสร้างฐาน
+- `src/Domain/Workflow/` และ `public/assets/workflow.js` กติกาคำนวณวัน · `migrations/` ไฟล์ปรับโครงสร้างฐาน
 - ใช้ข้อมูลสมมติในเครื่องและภาพทดสอบ เก็บฐานสำนวนจริงและค่าลับไว้ในพื้นที่ของผู้ดูแลนอก Git

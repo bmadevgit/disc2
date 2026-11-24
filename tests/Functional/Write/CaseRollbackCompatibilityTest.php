@@ -11,6 +11,7 @@ final class CaseRollbackCompatibilityTest extends WriteTestCase
 {
     public function testProceduralReleaseReadsAllNewRecordsOnTheSameDatabase(): void
     {
+        $legacyRoot = $this->legacyRoot();
         $this->login('demo-owner');
         $this->post(['action'=>'create_case','case_number'=>'INITIAL','unit_level2'=>'RollbackGroup'], 302);
         $this->post(['action'=>'save_page1','case_id'=>2,'case_number'=>'ROLLBACK-CASE','unit_level2'=>'RollbackGroup',
@@ -24,7 +25,7 @@ final class CaseRollbackCompatibilityTest extends WriteTestCase
 
         require_once $this->root.'/tests/Legacy/run.php';
         $passwords = json_decode(file_get_contents($this->directory.'/legacy/demo-accounts.json'), true, flags: JSON_THROW_ON_ERROR);
-        withLegacyServer($this->root, $this->directory, function (string $base) use ($passwords) {
+        withLegacyServer($legacyRoot, $this->directory, function (string $base) use ($passwords) {
             $owner = new Browser($base);
             $owner->login('demo-owner', $passwords['demo-owner']);
             self::assertStringContainsString('ROLLBACK-CASE', $owner->request('/index.php', 200));

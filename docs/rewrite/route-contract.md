@@ -4,7 +4,7 @@ Paths are relative to the application mount (including `/exam/disc2` on IIS). Re
 
 | Path | Class | Method | Parameters | Response | Access | Replacement |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/` | page | GET | Same filters as index.php | Same as index.php | Authenticated | case_index |
+| `/` | page | GET | Same filters as index.php | Same as index.php | Authenticated | case_home |
 | `/admin.php` | page | GET | None | 200 dashboard or 302 index.php | Admin, executive or unit head | dashboard |
 | `/ai_dashboard.php` | JSON endpoint | POST (GET also reaches handler) | csrf on POST | 200 JSON ok/summary, 503 JSON ok/message in dev or on gateway failure, 403 for non-admins | Admin | dashboard_ai |
 | `/auth.php` | internal include | Internal | Session | Session, login, CSRF, identity and scope helpers | Internal | No public route |
@@ -25,7 +25,7 @@ Paths are relative to the application mount (including `/exam/disc2` on IIS). Re
 | `/roles.php` | page | GET, POST | csrf, personal_id, display_name, access_role, unit_level1, unit_level2, active | 200 assignments, 302 roles.php?saved=1 after POST, 403 non-admin | Admin | access_roles |
 | `/save.php` | retired-410 | Any | Ignored | 410 plain message | Public | retired_save |
 | `/save_case.php` | write endpoint | POST | csrf, action, case_id except create, see form table | 302 saved case tab or selected track, 400 unknown action, 403/404/405/419/422, 409 stale state, 503 on workflow lock timeout | Admin or active case owner | case_save |
-| `/save_comment2.php` | write endpoint | POST | csrf, case_id, action, older form fields below | Legacy dispatch, 302 saved case tab on successful action, 403 absent case/edit, 422 unknown action. Some branches reference obsolete schema | Case editor | comment2_save |
+| `/save_comment2.php` | write endpoint | POST | csrf, case_id, action, older form fields below | 302 after committee/referral, 403 for GET or absent case/edit, 410 for retired alternate forms, 422 unknown action | Case editor | comment2_save |
 | `/save_discipline.php` | write endpoint | POST | csrf, case_id, track_id, subject_id, finding, opinion fields, recommend_serious | 302 discipline_results.php with track query and saved=1, 403/405/409/419/422 | Case editor | discipline_save |
 | `/save_workflow.php` | internal include | Internal | Authenticated save_case action and scope | Handles discipline assignments, escalation, deadlines and decisions | Internal | No public route |
 | `/settings.php` | internal include | Internal | Environment | App configuration helpers | Internal | No public route |
@@ -65,7 +65,7 @@ A successful role assignment records one `assign_role` audit with a null case ID
 
 ### Older comment2 forms
 
-All actions accept `csrf` and `case_id`. Their forms live in the unreferenced alternate tab template. Current migrations use different columns for several actions. For example, page1 references `uat_cases` while the active case table is `cases`. The workflow suite uses the forms emitted by `case.php`, `track.php` and `discipline_results.php`. The older endpoint's unknown-action response is also exercised.
+All actions accept `csrf` and `case_id`. Their forms live in the unreferenced alternate tab template. Current migrations use different columns for several actions. For example, page1 references `uat_cases` while the active case table is `cases`. The workflow suite uses the forms emitted by `case.php`, `track.php` and `discipline_results.php`. Symfony keeps committee and referral writes. After login, CSRF and the case write check, page1, fact, track_time, extension, discipline_result and decision return HTTP 410 with the plain text “แบบฟอร์มนี้ยกเลิกแล้ว กรุณาเปิดหน้าสำนวนใหม่”. These obsolete alternate forms lack the round, revision or field semantics needed to safely replay them against current records. Unknown actions return 422. An authenticated GET returns 403 even if a case ID appears in the query string. The active save_case and save_discipline endpoints return 405 for authenticated GET.
 
 | Action | Additional submitted fields |
 | --- | --- |
@@ -79,3 +79,14 @@ All actions accept `csrf` and `case_id`. Their forms live in the unreferenced al
 | decision | decision[subject_id] with decision_path, report_kk_date, disciplinary_resolution_date, termination_reason, proposal_letter_number, commander_outcome, other_outcome, other_note, order_no, order_date, completed_date |
 
 The legacy demo login redirects all successful POSTs to `index.php`. Live local admin login redirects to `admin.php`, and live BMA login redirects to `index.php` or `admin.php` for the configured super-admin. The live form checks a five-failure, 15-minute per-IP limit. Symfony applies that limit to both live and demo logins, and records the outcome in login_log. The synthetic suite uses local demo credentials and a simulated BMA directory.
+
+### Procedural comparison after source cutover
+
+The native application and regular workflow tests use Composer and the public front controller. Four additional schema and rollback comparisons use a separate procedural checkout. Run the full comparison from the repository root on a Docker development machine. The export contains tracked synthetic initializer code and migrations only alongside the procedural endpoints and their test server tools.
+
+```sh
+legacy_dir=$(mktemp -d)
+git archive c2139381043349ba3e8828daf29b4586e1a61259 -- ':(top,glob)*.php' migrations tools/init.php tools/base-schema.sql tools/dev-login.php tools/router.php | tar -x -C "$legacy_dir"
+docker compose run --rm --no-deps -v "$legacy_dir:/oracle:ro" -e DISC2_LEGACY_ROOT=/oracle app vendor/bin/phpunit --fail-on-warning --fail-on-deprecation
+docker compose run --rm --no-deps -v "$legacy_dir:/oracle:ro" app php tests/Legacy/run.php /oracle
+```

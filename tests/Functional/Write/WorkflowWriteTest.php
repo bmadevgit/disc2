@@ -9,7 +9,14 @@ use PDO;
 
 final class WorkflowWriteTest extends WriteTestCase
 {
-    public function testCharacterizedWorkflowAndProceduralRollbackOnSameDatabase(): void
+    public function testCharacterizedWorkflow(): void
+    {
+        $this->writeCharacterizedWorkflow();
+        self::assertSame('ok', $this->db->query('PRAGMA integrity_check')->fetchColumn());
+        self::assertSame([], $this->rows('PRAGMA foreign_key_check'));
+    }
+
+    private function writeCharacterizedWorkflow(): array
     {
         $this->login('demo-owner');
         require_once $this->root.'/tests/Legacy/run.php';
@@ -24,9 +31,16 @@ final class WorkflowWriteTest extends WriteTestCase
             return $response->getContent();
         };
         checkWorkflows($request, $this->db, $fixtures);
+        return $fixtures;
+    }
+
+    public function testProceduralRollbackOnSameDatabase(): void
+    {
+        $legacyRoot = $this->legacyRoot();
+        $fixtures = $this->writeCharacterizedWorkflow();
         $before = $this->rows('SELECT * FROM uat_audit_log ORDER BY id');
         $passwords = json_decode(file_get_contents($this->directory.'/legacy/demo-accounts.json'), true, flags: JSON_THROW_ON_ERROR);
-        withLegacyServer($this->root, $this->directory, function (string $base) use ($passwords, $fixtures) {
+        withLegacyServer($legacyRoot, $this->directory, function (string $base) use ($passwords, $fixtures) {
             $browser = new Browser($base);
             $browser->login('demo-owner', $passwords['demo-owner']);
             $history = $browser->request('/subject.php?case_id=1&subject_id=1', 200);

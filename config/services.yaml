@@ -24,6 +24,10 @@ services:
 
     App\Application\Auth\BmaDirectory: '@App\Application\Auth\BmaApiDirectory'
 
+    App\Application\Query\DashboardAssistant:
+        arguments:
+            $configFile: '%env(default:disc2.ai_config:DISC2_AI_CONFIG_FILE)%'
+
     PDO:
         class: PDO
         lazy: true
@@ -34,6 +38,7 @@ services:
             $migrationDirectory: '%kernel.project_dir%/migrations'
 
 parameters:
+    disc2.ai_config: 'C:/inetpub/private/disc2-ai.php'
     disc2.external_config: 'C:/inetpub/private/disc2-config.php'
 
 when@test:

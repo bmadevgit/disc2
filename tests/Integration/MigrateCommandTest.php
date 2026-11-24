@@ -13,7 +13,7 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
 {
     private const VERSIONS = ['001_uat', '002_comment2', '003_subject_national_id', '004_workflow'];
 
-    public function testFreshBaseMatchesLegacySchemaAndRepeatedRunPreservesRecords(): void
+    public function testFreshBaseAndRepeatedRunPreservesRecords(): void
     {
         $this->base();
         $db = $this->connection();
@@ -25,16 +25,24 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
         self::assertSame($rows, $db->query('SELECT * FROM uat_schema_migrations')->fetchAll());
         self::assertSame('ok', $db->query('PRAGMA integrity_check')->fetchColumn());
         self::assertSame([], $db->query('PRAGMA foreign_key_check')->fetchAll());
+    }
 
+    public function testFreshBaseMatchesProceduralSchema(): void
+    {
+        $root = $this->legacyRoot();
+        $this->base();
+        $db = $this->connection();
+        self::assertSame(0, (new CommandTester(new MigrateCommand($db, $this->root.'/migrations')))->execute([]));
         $schema = $db->query('SELECT type,name,sql FROM sqlite_schema ORDER BY name')->fetchAll();
-        $this->initializeLegacy();
+        $this->initializeFixture($root);
         $legacy = new PDO('sqlite:'.$this->directory.'/legacy/disc2-dev.sqlite');
         self::assertSame($schema, $legacy->query('SELECT type,name,sql FROM sqlite_schema ORDER BY name')->fetchAll(PDO::FETCH_ASSOC));
     }
 
     public function testCopiedLegacyDatabaseRetainsEveryLogicalRecord(): void
     {
-        $this->copiedFixture();
+        $this->initializeFixture($this->legacyRoot());
+        copy($this->directory.'/legacy/disc2-dev.sqlite', $this->path);
         $db = $this->connection();
         $before = $this->dumpTables($db);
         self::assertSame(0, (new CommandTester(new MigrateCommand($db, $this->root.'/migrations')))->execute([]));

@@ -34,10 +34,20 @@ abstract class SyntheticDatabaseTestCase extends TestCase
         return $db;
     }
 
-    protected function initializeLegacy(): void
+    protected function legacyRoot(): string
+    {
+        $root = getenv('DISC2_LEGACY_ROOT');
+        if (!$root) {
+            self::markTestSkipped('Set DISC2_LEGACY_ROOT to the exported procedural release for the rollback rehearsal.');
+        }
+        self::assertFileExists($root.'/auth.php', 'DISC2_LEGACY_ROOT must contain the procedural release.');
+        return $root;
+    }
+
+    protected function initializeFixture(string $root): void
     {
         $source = $this->directory.'/legacy';
-        $process = proc_open([PHP_BINARY, $this->root.'/tools/init.php', $source], [1 => ['pipe', 'w']], $pipes);
+        $process = proc_open([PHP_BINARY, $root.'/tools/init.php', $source], [1 => ['pipe', 'w']], $pipes);
         stream_get_contents($pipes[1]);
         fclose($pipes[1]);
         self::assertSame(0, proc_close($process));
@@ -45,7 +55,7 @@ abstract class SyntheticDatabaseTestCase extends TestCase
 
     protected function copiedFixture(): void
     {
-        $this->initializeLegacy();
+        $this->initializeFixture($this->root);
         $source = $this->directory.'/legacy';
         copy($source.'/disc2-dev.sqlite', $this->path);
     }

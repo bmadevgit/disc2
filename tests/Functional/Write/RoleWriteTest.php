@@ -15,6 +15,12 @@ final class RoleWriteTest extends WriteTestCase
         self::assertSame(['Role user','unit_head','A','B',1], array_values($this->rows("SELECT display_name,access_role,unit_level1,unit_level2,active FROM uat_access_assignments WHERE bma_personal_id='synthetic'")[0]));
         self::assertSame($target, $this->post(['access_role'=>'executive'] + $fields, 302, '/roles.php')->headers->get('Location'));
         self::assertSame([['access_role'=>'executive','active'=>0]], $this->rows("SELECT access_role,active FROM uat_access_assignments WHERE bma_personal_id='synthetic'"));
+        $details = array_map(static fn (array $row) => json_decode($row['detail'], true, flags: JSON_THROW_ON_ERROR),
+            $this->rows('SELECT detail FROM uat_audit_log ORDER BY id'));
+        self::assertSame([
+            ['personal_id'=>'synthetic', 'role'=>'unit_head', 'active'=>true],
+            ['personal_id'=>'synthetic', 'role'=>'executive', 'active'=>false],
+        ], $details);
         self::assertSame([[null,'1','assign_role'],[null,'1','assign_role']], array_map('array_values', $this->rows('SELECT case_id,actor_id,action FROM uat_audit_log ORDER BY id')));
     }
 

@@ -27,6 +27,13 @@ final class CommitteeController extends AbstractController
                     $referral->run($user, $id, $input);
                     $tab = 2;
                     break;
+                case 'page1':
+                case 'fact':
+                case 'track_time':
+                case 'extension':
+                case 'discipline_result':
+                case 'decision':
+                    return new Response('แบบฟอร์มนี้ยกเลิกแล้ว กรุณาเปิดหน้าสำนวนใหม่', 410, ['Content-Type'=>'text/plain; charset=utf-8']);
                 default:
                     return new Response('ไม่พบคำสั่งบันทึก', 422);
             }

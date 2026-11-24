@@ -16,7 +16,7 @@ function same(mixed $expected, mixed $actual, string $label): void
 function checkInventory(string $root): void
 {
     $rows = [];
-    $document = $root . '/docs/rewrite/route-contract.md';
+    $document = dirname(__DIR__, 2).'/docs/rewrite/route-contract.md';
     foreach (is_file($document) ? file($document, FILE_IGNORE_NEW_LINES) : [] as $line) {
         if (!preg_match('~^\| `/([a-z0-9_]+\.php)` \|~', $line, $match)) continue;
         $name = $match[1];
@@ -290,10 +290,10 @@ function runLegacy(string $root): void
         $db->exec('PRAGMA foreign_keys=ON');
         $accounts = seedRoles($db, json_decode(file_get_contents($temp.'/runtime/demo-accounts.json'), true, flags: JSON_THROW_ON_ERROR));
 
-        withLegacyServer($root, $temp, function (string $base) use ($root, $db, $accounts) {
+        withLegacyServer($root, $temp, function (string $base) use ($db, $accounts) {
             $editor = checkRoles($db, $base, $accounts);
             echo "PASS role, scope, identity, aliases and status contracts\n";
-            $fixtures = require $root.'/tests/Fixtures/legacy-workflows.php';
+            $fixtures = require dirname(__DIR__).'/Fixtures/legacy-workflows.php';
             checkWorkflows($editor->request(...), $db, $fixtures);
             same('ok', $db->query('PRAGMA integrity_check')->fetchColumn(), 'Database integrity');
             same([], $db->query('PRAGMA foreign_key_check')->fetchAll(), 'Foreign keys');
@@ -478,7 +478,11 @@ function checkConversion(PDO $db, Closure $request, Closure $post, array $fixtur
 }
 
 if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
-    $root = dirname(__DIR__, 2);
+    $root = $argv[1] ?? getenv('DISC2_LEGACY_ROOT');
+    if (!$root || !is_file($root.'/auth.php')) {
+        fwrite(STDERR, "Supply the exported procedural release directory or set DISC2_LEGACY_ROOT.\n");
+        exit(2);
+    }
     checkInventory($root);
     echo "PASS root PHP inventory\n";
     runLegacy($root);

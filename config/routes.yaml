@@ -44,3 +44,17 @@ case_save: { path: /save_case.php, controller: App\Controller\CaseWriteControlle
 access_roles_save: { path: /roles.php, controller: App\Controller\RoleController, methods: [POST] }
 discipline_save: { path: /save_discipline.php, controller: App\Controller\DisciplineWriteController, methods: [GET, POST] }
 comment2_save: { path: /save_comment2.php, controller: App\Controller\CommitteeController, methods: [GET, POST] }
+
+dashboard_ai: { path: /ai_dashboard.php, controller: App\Controller\DashboardAiController, methods: [GET, POST] }
+retired_save:
+    path: /save.php
+    controller: App\Controller\RetiredController
+    defaults: { message: 'UAT ใช้ save_case.php ตาม Workflow 4 หน้า' }
+retired_update_case:
+    path: /update_case.php
+    controller: App\Controller\RetiredController
+    defaults: { message: 'UAT ใช้ save_case.php ตาม Workflow 4 หน้า' }
+retired_update_unit_target:
+    path: /update_unit_target.php
+    controller: App\Controller\RetiredController
+    defaults: { message: 'ฟังก์ชันยอดรวมเดิมไม่ใช้ใน UAT' }

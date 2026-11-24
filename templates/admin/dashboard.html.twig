@@ -68,7 +68,7 @@
                 result.style.display = 'block';
                 result.textContent = 'กำลังประมวลผลสถิติ…';
                 try {
-                    const response = await fetch({{ (app.request.basePath ~ '/ai_dashboard.php')|json_encode(15)|raw }}, {
+                    const response = await fetch({{ path('dashboard_ai')|json_encode(15)|raw }}, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: new URLSearchParams({csrf: {{ csrf_token('disc2_form')|json_encode(15)|raw }}})
