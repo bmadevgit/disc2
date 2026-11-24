@@ -22,9 +22,11 @@ final readonly class SaveSubject
             throw new WriteFailure('ไม่พบผู้ถูกกล่าวหาในสำนวนนี้', 404);
         }
         if ($id && !$identity) {
-            $this->subjects->updateEmployment($caseId, $id, $fields['employment']);
+            if (isset($fields['employment'])) {
+                $this->subjects->updateEmployment($caseId, $id, $fields['employment']);
+            }
         } else {
-            if (($fields['first'] ?? '') === '') {
+            if (($fields['first'] ?? null) === '') {
                 return;
             }
             if (!$id) {
@@ -38,13 +40,15 @@ final readonly class SaveSubject
                 }
             }
             $id = $this->subjects->save($caseId, $id, $sequence, [
-                'title_th'=>$fields['title'],'first_name_th'=>$fields['first'],'last_name_th'=>$fields['last'],
-                'position_name'=>$fields['position'],'employment_type'=>$fields['employment'],'national_id'=>$fields['national_id'],
+                'title_th'=>$fields['title'] ?? null, 'first_name_th'=>$fields['first'] ?? null, 'last_name_th'=>$fields['last'] ?? null,
+                'position_name'=>$fields['position'] ?? null, 'employment_type'=>$fields['employment'] ?? null, 'national_id'=>$fields['national_id'] ?? null,
             ]);
         }
-        if ($fields['status'] !== '' && $fields['status'] !== ($prior['status_name'] ?? null)) {
-            WriteForm::validateDate($fields['status_date']);
-            $this->subjects->recordStatus($id, $fields['status'], $fields['status_date'], $fields['status_reason']);
+        $status = $fields['status'] ?? '';
+        if ($status !== '' && $status !== ($prior['status_name'] ?? null)) {
+            $date = $fields['status_date'] ?? '';
+            WriteForm::validateDate($date);
+            $this->subjects->recordStatus($id, $status, $date, $fields['status_reason'] ?? '');
         }
     }
 }

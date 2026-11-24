@@ -53,13 +53,18 @@ final class SubjectRepository extends Repository
         return (int)$this->execute('SELECT COALESCE(MAX(sequence_no),0)+1 FROM uat_subjects WHERE case_id=?', [$caseId])->fetchColumn();
     }
 
-    /** @param array{title_th:string,first_name_th:string,last_name_th:string,position_name:string,employment_type:string,national_id:string} $fields */
+    /**
+     * Updates preserve columns whose fields were omitted. New rows receive the bound form defaults.
+     * @param array{title_th:?string,first_name_th:?string,last_name_th:?string,position_name:?string,employment_type:?string,national_id:?string} $fields
+     */
     public function save(int $caseId, int $subjectId, int $sequence, array $fields): int
     {
         $values = [$fields['title_th'], $fields['first_name_th'], $fields['last_name_th'], $fields['position_name'],
             $fields['employment_type'], $fields['national_id']];
         if ($subjectId > 0) {
-            $updated = $this->execute("UPDATE uat_subjects SET title_th=?,first_name_th=?,last_name_th=?,position_name=?,employment_type=?,
+            $updated = $this->execute("UPDATE uat_subjects SET title_th=COALESCE(?,title_th),
+                first_name_th=COALESCE(?,first_name_th),last_name_th=COALESCE(?,last_name_th),
+                position_name=COALESCE(?,position_name),employment_type=COALESCE(?,employment_type),
                 national_id=COALESCE(NULLIF(?,''),national_id) WHERE id=? AND case_id=? AND active=1", [...$values, $subjectId, $caseId]);
             if ($updated->rowCount() !== 1) {
                 throw new \UnexpectedValueException('Missing active subject in this case.');

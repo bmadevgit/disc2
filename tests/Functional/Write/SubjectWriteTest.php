@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Write;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 final class SubjectWriteTest extends WriteTestCase
 {
     private function save(array $subjects, int $status = 302): void
@@ -34,6 +36,28 @@ final class SubjectWriteTest extends WriteTestCase
         $this->save([['id'=>3,'first'=>' Changed ','last'=>'Family','national_id'=>'','status'=>'other']]);
         self::assertSame([3,'REF-1-3','Changed','Family','0000000000000'], array_values($this->rows('SELECT sequence_no,reference_code,first_name_th,last_name_th,national_id FROM uat_subjects WHERE id=3')[0]));
         self::assertSame(['new','other'], array_column($this->rows('SELECT status_name FROM uat_subject_status_history WHERE subject_id=3 ORDER BY id'),'status_name'));
+    }
+
+    public static function partialAdminEdits(): iterable
+    {
+        yield 'first name only' => [['first'=>' Changed '], ['Title','Changed','Last','Position','0000000000000','Staff']];
+        yield 'employment and status only' => [['employment'=>'Officer','status'=>'Active'],
+            ['Title','First','Last','Position','0000000000000','Officer']];
+        yield 'explicitly clear position' => [['position'=>''], ['Title','First','Last','','0000000000000','Staff']];
+    }
+
+    #[DataProvider('partialAdminEdits')]
+    public function testPartialAdminEditPreservesEachOmittedField(array $edit, array $expected): void
+    {
+        $this->login('demo-admin');
+        $this->db->exec("UPDATE uat_subjects SET title_th='Title',first_name_th='First',last_name_th='Last',position_name='Position',
+            national_id='0000000000000',employment_type='Staff' WHERE id=1");
+        $this->save([['id'=>1] + $edit]);
+        $row = $this->rows('SELECT title_th,first_name_th,last_name_th,position_name,national_id,employment_type FROM uat_subjects WHERE id=1')[0];
+        self::assertSame($expected, array_values($row));
+        self::assertSame(isset($edit['status']) ? [$edit['status']] : [],
+            array_column($this->rows('SELECT status_name FROM uat_subject_status_history WHERE subject_id=1'), 'status_name'));
+        self::assertCount(1, $this->rows("SELECT id FROM uat_audit_log WHERE action='save_case_info' AND case_id=1"));
     }
 
     public function testNewSubjectUsesStoredSequenceAndStaleResubmissionIsAtomic(): void

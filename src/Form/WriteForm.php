@@ -75,6 +75,9 @@ final readonly class WriteForm
                 array_push($names, 'title','first','last','position','national_id');
             }
             $fields = $this->bind($row, $names);
+            if ($id) {
+                $fields = array_intersect_key($fields, $row);
+            }
             if (!$id && $fields['first'] === '') {
                 $subjects[$index] = ['id'=>0, 'first'=>''];
                 continue;
