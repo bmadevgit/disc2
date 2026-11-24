@@ -58,6 +58,40 @@ final class MigrateCommandTest extends SyntheticDatabaseTestCase
         self::assertSame(1, $db->query('PRAGMA foreign_keys')->fetchColumn());
     }
 
+    #[\PHPUnit\Framework\Attributes\DataProvider('failingInserts')]
+    public function testRawTransactionFailureReleasesWriterAndPreservesOriginalError(string $insert): void
+    {
+        $this->base();
+        $peer = $this->connection();
+        $peer->exec('PRAGMA busy_timeout=20');
+        // Model the PHP 8.2 PDO driver without changing SQLite's actual transaction state.
+        $db = new class('sqlite:'.$this->path) extends PDO {
+            public function inTransaction(): bool
+            {
+                return false;
+            }
+        };
+        $dir = $this->directory.'/migrations';
+        mkdir($dir);
+        file_put_contents($dir.'/001_partial.sql', 'CREATE TABLE partial_batch(value TEXT UNIQUE)');
+        file_put_contents($dir.'/002_failure.sql', "INSERT INTO partial_batch VALUES('one'); $insert");
+        $command = new CommandTester(new MigrateCommand($db, $dir));
+        self::assertSame(1, $command->execute([]));
+        self::assertStringContainsString('UNIQUE constraint failed: partial_batch.value', $command->getDisplay());
+        self::assertStringNotContainsString('no transaction is active', $command->getDisplay());
+        self::assertSame(0, $db->query("SELECT COUNT(*) FROM sqlite_schema WHERE name IN ('partial_batch','uat_schema_migrations')")->fetchColumn());
+        $peer->exec('BEGIN IMMEDIATE');
+        $peer->exec('INSERT INTO cases(id) VALUES(17)');
+        $peer->exec('COMMIT');
+        self::assertSame(17, $db->query('SELECT id FROM cases')->fetchColumn());
+    }
+
+    public static function failingInserts(): iterable
+    {
+        yield 'statement abort leaves transaction open' => ["INSERT INTO partial_batch VALUES('one')"];
+        yield 'SQLite already rolled back' => ["INSERT OR ROLLBACK INTO partial_batch VALUES('one')"];
+    }
+
     public function testAlreadyMigratedDatabaseWithBrokenForeignKeyFailsChecks(): void
     {
         $this->copiedFixture();

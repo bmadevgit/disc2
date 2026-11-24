@@ -54,6 +54,9 @@ final class WorkflowRepositoryTest extends SyntheticDatabaseTestCase
         self::assertSame([], $tracks->history(2, 1));
         self::assertFalse($tracks->hasActiveDiscipline(2));
         self::assertNull($tracks->currentDiscipline(2, 1));
+        self::assertSame(['total'=>0, 'no_ground'=>null], $findings->factCounts($otherTrack, 1));
+        self::assertSame(['total'=>0, 'no_ground'=>null], $findings->factCounts($otherTrack, 2));
+
         self::assertSame([], $findings->forTrack($otherTrack));
         self::assertNull($findings->forSubject($otherTrack, 1));
         self::assertSame([], (new CommitteeRepository($db))->setMembers($otherTrack));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Command;
 
 use PDO;
+use PDOException;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -65,10 +66,19 @@ final class MigrateCommand extends Command
             }
             $this->db->exec('COMMIT');
         } catch (Throwable $e) {
-            if ($started && $this->db->inTransaction()) {
-                $this->db->exec('ROLLBACK');
+            $message = $e->getMessage();
+            if ($started) {
+                // Raw BEGIN IMMEDIATE is invisible to PDO::inTransaction() on PHP 8.2.
+                try {
+                    $this->db->exec('ROLLBACK');
+                } catch (PDOException $rollbackError) {
+                    // SQLite can already have rolled back the whole transaction.
+                    if (!str_contains($rollbackError->getMessage(), 'no transaction is active')) {
+                        $message .= PHP_EOL.'Rollback failed: '.$rollbackError->getMessage();
+                    }
+                }
             }
-            $output->writeln('<error>'.$e->getMessage().'</error>');
+            $output->writeln('<error>'.$message.'</error>');
             return Command::FAILURE;
         }
         foreach ($applied as $version) {
