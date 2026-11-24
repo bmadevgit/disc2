@@ -241,10 +241,9 @@ function removeTemporaryTree(string $directory): void
     rmdir($directory);
 }
 
-function runLegacy(string $root): void
+/** Serve the procedural release over loopback against the supplied synthetic runtime directory. */
+function withLegacyServer(string $root, string $temp, callable $check): void
 {
-    $temp = sys_get_temp_dir().'/disc2-legacy-'.bin2hex(random_bytes(12));
-    if (!mkdir($temp, 0700)) throw new RuntimeException('Cannot create private test directory');
     $server = null;
     try {
         // db.php resolves its database relative to __DIR__. Copy only the source the web process needs.
@@ -254,14 +253,6 @@ function runLegacy(string $root): void
         }
         $log = ['file', $temp.'/server.log', 'a'];
         $io = [0=>['file','/dev/null','r'], 1=>$log, 2=>$log];
-        $init = proc_open([PHP_BINARY, $root.'/tools/init.php', $temp.'/runtime'], $io, $pipes, $root);
-        same(0, proc_close($init), 'Synthetic initializer (see tools/init.php)');
-        $db = new PDO('sqlite:'.$temp.'/runtime/disc2-dev.sqlite', options: [
-            PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
-        ]);
-        $db->exec('PRAGMA foreign_keys=ON');
-        $accounts = seedRoles($db, json_decode(file_get_contents($temp.'/runtime/demo-accounts.json'), true, flags: JSON_THROW_ON_ERROR));
-
         // Port zero lets the OS allocate a free loopback port even for concurrent runs.
         $server = proc_open([PHP_BINARY, '-d', 'session.save_path='.$temp, '-S', '127.0.0.1:0', 'tools/router.php'],
             $io, $pipes, $temp, array_merge(getenv(), ['DISC2_DEV'=>'1','DISC2_DOCKER'=>'0']));
@@ -275,18 +266,40 @@ function runLegacy(string $root): void
             usleep(20000);
         }
         if (!$base) throw new RuntimeException('Synthetic HTTP server failed to start');
-        $editor = checkRoles($db, $base, $accounts);
-        echo "PASS role, scope, identity, aliases and status contracts\n";
-        $fixtures = require $root.'/tests/Fixtures/legacy-workflows.php';
-        checkWorkflows($editor, $db, $fixtures);
-        same('ok', $db->query('PRAGMA integrity_check')->fetchColumn(), 'Database integrity');
-        same([], $db->query('PRAGMA foreign_key_check')->fetchAll(), 'Foreign keys');
-        echo "PASS workflow dates, results, escalation, history and database integrity\n";
+        $check($base);
     } finally {
         if (is_resource($server)) {
             proc_terminate($server);
             proc_close($server);
         }
+    }
+}
+
+function runLegacy(string $root): void
+{
+    $temp = sys_get_temp_dir().'/disc2-legacy-'.bin2hex(random_bytes(12));
+    if (!mkdir($temp, 0700)) throw new RuntimeException('Cannot create private test directory');
+    try {
+        $log = ['file', $temp.'/init.log', 'a'];
+        $io = [0=>['file','/dev/null','r'], 1=>$log, 2=>$log];
+        $init = proc_open([PHP_BINARY, $root.'/tools/init.php', $temp.'/runtime'], $io, $pipes, $root);
+        same(0, proc_close($init), 'Synthetic initializer (see tools/init.php)');
+        $db = new PDO('sqlite:'.$temp.'/runtime/disc2-dev.sqlite', options: [
+            PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+        ]);
+        $db->exec('PRAGMA foreign_keys=ON');
+        $accounts = seedRoles($db, json_decode(file_get_contents($temp.'/runtime/demo-accounts.json'), true, flags: JSON_THROW_ON_ERROR));
+
+        withLegacyServer($root, $temp, function (string $base) use ($root, $db, $accounts) {
+            $editor = checkRoles($db, $base, $accounts);
+            echo "PASS role, scope, identity, aliases and status contracts\n";
+            $fixtures = require $root.'/tests/Fixtures/legacy-workflows.php';
+            checkWorkflows($editor, $db, $fixtures);
+            same('ok', $db->query('PRAGMA integrity_check')->fetchColumn(), 'Database integrity');
+            same([], $db->query('PRAGMA foreign_key_check')->fetchAll(), 'Foreign keys');
+            echo "PASS workflow dates, results, escalation, history and database integrity\n";
+        });
+    } finally {
         removeTemporaryTree($temp);
     }
 }
@@ -459,7 +472,9 @@ function checkConversion(PDO $db, Browser $editor, Closure $post, array $fixture
     same(array_column($fixture['extensions'],'reason'), array_column($detail['extensions_after'],'reason'), 'Extension reasons retained');
 }
 
-$root = dirname(__DIR__, 2);
-checkInventory($root);
-echo "PASS root PHP inventory\n";
-runLegacy($root);
+if (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {
+    $root = dirname(__DIR__, 2);
+    checkInventory($root);
+    echo "PASS root PHP inventory\n";
+    runLegacy($root);
+}

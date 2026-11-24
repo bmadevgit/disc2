@@ -23,7 +23,9 @@ final readonly class CaseViewQuery
         }
         $present = static fn ($row) => SubjectPresentation::forReader($row, $identity);
         $result = ['case'=>$case, 'subjects'=>array_map($present, $this->subjects->activeForCase($id)), 'id'=>$id, 'page'=>$page];
-        if ($page === 2) {
+        if ($page === 1) {
+            $result['nextSubjectIndex'] = $this->subjects->nextSequence($id) - 1;
+        } elseif ($page === 2) {
             $fact = $this->tracks->find($id, TrackType::Fact);
             $result += ['fact'=>$fact, 'findings'=>$fact ? array_column($this->findings->forTrack($fact['id']), null, 'subject_id') : [],
                 'orders'=>$fact ? $this->committees->orders($fact['id']) : [], 'extensions'=>$fact ? $this->extensions->forTrack($fact['id']) : []];

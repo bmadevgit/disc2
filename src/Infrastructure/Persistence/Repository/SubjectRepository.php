@@ -35,6 +35,24 @@ final class SubjectRepository extends Repository
         return $this->rows('SELECT * FROM uat_subject_status_history WHERE subject_id=? ORDER BY id DESC', [$subjectId]);
     }
 
+    public function activeStatus(int $caseId, int $subjectId): ?array
+    {
+        return $this->row('SELECT (SELECT status_name FROM uat_subject_status_history h
+            WHERE h.subject_id=s.id ORDER BY h.id DESC LIMIT 1) status_name
+            FROM uat_subjects s WHERE s.id=? AND s.case_id=? AND s.active=1', [$subjectId, $caseId]);
+    }
+
+    public function updateEmployment(int $caseId, int $subjectId, string $employment): void
+    {
+        $this->execute('UPDATE uat_subjects SET employment_type=? WHERE id=? AND case_id=? AND active=1',
+            [$employment, $subjectId, $caseId]);
+    }
+
+    public function nextSequence(int $caseId): int
+    {
+        return (int)$this->execute('SELECT COALESCE(MAX(sequence_no),0)+1 FROM uat_subjects WHERE case_id=?', [$caseId])->fetchColumn();
+    }
+
     /** @param array{title_th:string,first_name_th:string,last_name_th:string,position_name:string,employment_type:string,national_id:string} $fields */
     public function save(int $caseId, int $subjectId, int $sequence, array $fields): int
     {
@@ -42,10 +60,11 @@ final class SubjectRepository extends Repository
             $fields['employment_type'], $fields['national_id']];
         if ($subjectId > 0) {
             $updated = $this->execute("UPDATE uat_subjects SET title_th=?,first_name_th=?,last_name_th=?,position_name=?,employment_type=?,
-                national_id=COALESCE(NULLIF(?,''),national_id) WHERE id=? AND case_id=?", [...$values, $subjectId, $caseId]);
-            if ($updated->rowCount() > 0) {
-                return $subjectId;
+                national_id=COALESCE(NULLIF(?,''),national_id) WHERE id=? AND case_id=? AND active=1", [...$values, $subjectId, $caseId]);
+            if ($updated->rowCount() !== 1) {
+                throw new \UnexpectedValueException('Missing active subject in this case.');
             }
+            return $subjectId;
         }
         $this->execute('INSERT INTO uat_subjects(case_id,sequence_no,title_th,first_name_th,last_name_th,position_name,employment_type,national_id,reference_code)
             VALUES(?,?,?,?,?,?,?,?,?)', [$caseId, $sequence, ...$values, 'REF-'.$caseId.'-'.$sequence]);

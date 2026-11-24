@@ -17,8 +17,8 @@ final readonly class CaseAudit
     {
     }
 
-    /** Called by the authorized use case within the transaction that changes the case. */
-    public function record(int $caseId, string $action, string $detail = ''): void
+    /** Case edits and global role assignments record the acting identity in their write transaction. */
+    public function record(?int $caseId, string $action, string $detail = ''): void
     {
         $actor = $this->tokens->getToken()?->getUser();
         if (!$actor instanceof User) {

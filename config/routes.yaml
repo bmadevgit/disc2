@@ -40,3 +40,5 @@ profile_alias: { path: /profile.php, controller: App\Controller\ReadAliasControl
 case_edit_alias: { path: /edit.php, controller: App\Controller\ReadAliasController::detail, methods: [GET] }
 case_view_alias: { path: /view_case.php, controller: App\Controller\ReadAliasController::detail, methods: [GET] }
 users_alias: { path: /users.php, controller: App\Controller\ReadAliasController::users, methods: [GET] }
+case_save: { path: /save_case.php, controller: App\Controller\CaseWriteController, methods: [GET, POST] }
+access_roles_save: { path: /roles.php, controller: App\Controller\RoleController, methods: [POST] }

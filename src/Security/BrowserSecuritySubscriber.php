@@ -20,11 +20,26 @@ final readonly class BrowserSecuritySubscriber implements EventSubscriberInterfa
 
     public static function getSubscribedEvents(): array
     {
-        // Validate after routing, before the firewall can execute a login POST.
-        return [KernelEvents::REQUEST => ['checkForm', 10], KernelEvents::RESPONSE => ['secureResponse', -1010]];
+        // Only the login authenticator consumes its POST inside the firewall.
+        return [KernelEvents::REQUEST => [['checkLogin', 10], ['checkProtectedForm', 7]],
+            KernelEvents::RESPONSE => ['secureResponse', -1010]];
     }
 
-    public function checkForm(RequestEvent $event): void
+    public function checkLogin(RequestEvent $event): void
+    {
+        if ($event->getRequest()->attributes->get('_route') === 'login') {
+            $this->checkForm($event);
+        }
+    }
+
+    public function checkProtectedForm(RequestEvent $event): void
+    {
+        if ($event->getRequest()->attributes->get('_route') !== 'login') {
+            $this->checkForm($event);
+        }
+    }
+
+    private function checkForm(RequestEvent $event): void
     {
         $request = $event->getRequest();
         if (!$event->isMainRequest() || $request->isMethodSafe() || in_array($request->attributes->get('_route'), ['retired_save', 'retired_update_case', 'retired_update_unit_target'], true)) {

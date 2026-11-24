@@ -57,6 +57,10 @@ Tab redirects have the form `case.php?id={case_id}&page={tab}&saved=1`. Track re
 
 The separate `save_discipline.php` form accepts `committee_opinion`, `appointing_authority_opinion`, `offense_basis`, and `allegation`. Outcomes are blank, `guilty`, or `not_guilty`. A serious recommendation on a non-serious track needs a committee opinion.
 
+Page 1 saves the case, subjects and status changes with one `save_case_info` audit. Existing subject IDs must belong to this case and be active. A submitted foreign or missing ID returns 404 and rolls back the page. Only admins may edit the five existing identity fields. Owners may enter a new subject and update an existing subject’s employment and status. A nonempty national ID after stripping separators must have 13 digits. Appending subjects from a stale form returns 409 when its new sequence has already been used.
+
+A successful role assignment records one `assign_role` audit with a null case ID and the acting administrator. The detail contains the target personal ID, role and active flag. An empty personal ID or unsupported role retains the saved redirect and leaves both tables untouched.
+
 ### Older comment2 forms
 
 All actions accept `csrf` and `case_id`. Their forms live in the unreferenced alternate tab template. Current migrations use different columns for several actions. For example, page1 references `uat_cases` while the active case table is `cases`. The workflow suite uses the forms emitted by `case.php`, `track.php` and `discipline_results.php`. The older endpoint's unknown-action response is also exercised.
