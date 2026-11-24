@@ -24,6 +24,20 @@ final class RoleWriteTest extends WriteTestCase
         self::assertSame([[null,'1','assign_role'],[null,'1','assign_role']], array_map('array_values', $this->rows('SELECT case_id,actor_id,action FROM uat_audit_log ORDER BY id')));
     }
 
+    public function testRoleWritesCheckAdministratorBeforeCsrf(): void
+    {
+        $fields = ['personal_id'=>'synthetic', 'access_role'=>'unit_head'];
+        $state = $this->state();
+        foreach (['demo-owner'=>403, 'demo-admin'=>419] as $actor=>$expected) {
+            $this->login($actor);
+            foreach ([[], ['csrf'=>'expired']] as $token) {
+                $this->client->request('POST', '/roles.php', $fields + $token);
+                self::assertSame($expected, $this->client->getResponse()->getStatusCode(), $actor);
+                self::assertSame($state, $this->state());
+            }
+        }
+    }
+
     public function testInvalidForbiddenExpiredAndFailedAuditKeepAssignment(): void
     {
         $fields = ['personal_id'=>'synthetic','access_role'=>'unit_head'];

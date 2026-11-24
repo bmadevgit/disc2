@@ -12,5 +12,6 @@ security:
     access_control:
         - { path: '^/(?:login|logout|i|save|update_case|update_unit_target)\.php$', roles: PUBLIC_ACCESS }
         - { route: dashboard_ai, roles: ROLE_ADMIN }
+        - { route: access_roles_save, roles: ROLE_ADMIN }
         - { route: runtime_smoke, roles: PUBLIC_ACCESS }
         - { path: '^/', roles: ROLE_USER }

@@ -61,7 +61,7 @@ The separate `save_discipline.php` form accepts `committee_opinion`, `appointing
 
 Page 1 saves the case, subjects and status changes with one `save_case_info` audit. Existing subject IDs must belong to this case and be active. A submitted foreign or missing ID returns 404 and rolls back the page. Only admins may edit the five existing identity fields. A partial subject edit preserves each omitted field and may update employment or status alone. Owners may enter a new subject and update an existing subject’s employment and status. A nonempty national ID after stripping separators must have 13 digits. Appending subjects from a stale form returns 409 when its new sequence has already been used.
 
-A successful role assignment records one `assign_role` audit with a null case ID and the acting administrator. The detail contains the target personal ID, role and active flag. An empty personal ID or unsupported role retains the saved redirect and leaves both tables untouched.
+On POST to `roles.php`, anonymous users redirect to login. An authenticated non-admin receives 403 even with a missing or expired CSRF token. An admin with the same missing or expired token receives 419. A successful role assignment records one `assign_role` audit with a null case ID and the acting administrator. The detail contains the target personal ID, role and active flag. An empty personal ID or unsupported role retains the saved redirect and leaves both tables untouched.
 
 ### Older comment2 forms
 
