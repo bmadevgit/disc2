@@ -18,6 +18,9 @@ final class LoginController extends AbstractController
         if ($user instanceof User) {
             return $this->redirect($request->getBasePath().($user->scope->canAdminister() ? '/admin.php' : '/index.php'));
         }
-        return $this->render('security/login.html.twig', ['demo' => $settings->isDemo(), 'error' => null]);
+        $mode = ($request->query->all()['login_type'] ?? null) === 'admin' ? 'admin' : 'bma';
+        return $this->render('security/login.html.twig', [
+            'demo' => $settings->isDemo(), 'error' => null, 'mode' => $mode, 'username' => '',
+        ]);
     }
 }

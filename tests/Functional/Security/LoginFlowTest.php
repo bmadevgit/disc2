@@ -143,6 +143,31 @@ final class LoginFlowTest extends SyntheticDatabaseTestCase
         $this->redirects('/admin.php');
     }
 
+    public function testLivePanelsPreserveFailedLoginModeAndEscapedUsername(): void
+    {
+        $this->liveSettings();
+        $this->attempt($this->csrf('/login.php'), 'Sample "A" <B> & Co', 'synthetic-wrong', 'admin');
+        $page = $this->client->getCrawler();
+        self::assertCount(1, $page->filter('#form-admin:not([hidden])'));
+        self::assertCount(1, $page->filter('#form-bma[hidden]'));
+        self::assertSame('Sample "A" <B> & Co', $page->filter('#form-admin input[name="username"]')->attr('value'));
+        self::assertSame('admin', $page->filter('#form-admin input[name="login_type"]')->attr('value'));
+        self::assertStringNotContainsString('synthetic-wrong', $this->response()->getContent());
+        $admin = $page->filter('#form-admin')->form(['username' => 'demo-admin', 'password' => $this->passwords['demo-admin']]);
+        $this->client->submit($admin);
+        $this->redirects('/admin.php');
+
+        $this->client->request('POST', '/logout.php', ['csrf' => $this->csrf('/logout.php')]);
+        $this->attempt($this->csrf('/login.php'), 'mailbox@BANGKOK.GO.TH', '', 'bma');
+        $page = $this->client->getCrawler();
+        self::assertCount(1, $page->filter('#form-bma:not([hidden])'));
+        self::assertSame('mailbox', $page->filter('#form-bma input[name="username"]')->attr('value'));
+        self::assertSame('@bangkok.go.th', $page->filter('.email-suffix')->text());
+        self::assertSame('13', $page->filter('#form-bma input[name="password"]')->attr('maxlength'));
+        self::assertCount(1, $page->filter('#form-bma a[href="https://register.bangkok.go.th/bmamailinfo/web/"]'));
+        self::assertStringNotContainsString('ระบบทดสอบ UAT', $this->response()->getContent());
+    }
+
     public function testBmaMappingAndStableUnitWithExternalSuperAdmin(): void
     {
         $this->liveSettings();

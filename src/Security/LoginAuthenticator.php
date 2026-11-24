@@ -56,7 +56,15 @@ final class LoginAuthenticator extends AbstractAuthenticator implements Authenti
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
         $message = $exception instanceof CustomUserMessageAuthenticationException ? $exception->getMessageKey() : 'ชื่อบัญชีหรือรหัสผ่านไม่ถูกต้อง';
-        return new Response($this->twig->render('security/login.html.twig', ['demo' => $this->settings->isDemo(), 'error' => $message]));
+        $form = $request->request->all();
+        $mode = ($form['login_type'] ?? null) === 'admin' ? 'admin' : 'bma';
+        $username = is_string($form['username'] ?? null) ? trim($form['username']) : '';
+        if (!$this->settings->isDemo() && $mode === 'bma') {
+            $username = preg_replace('/@bangkok\.go\.th$/iD', '', $username);
+        }
+        return new Response($this->twig->render('security/login.html.twig', [
+            'demo' => $this->settings->isDemo(), 'error' => $message, 'mode' => $mode, 'username' => $username,
+        ]));
     }
 
     public function start(Request $request, ?AuthenticationException $authException = null): Response

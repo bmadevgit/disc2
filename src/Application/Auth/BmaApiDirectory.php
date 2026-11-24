@@ -53,6 +53,11 @@ final readonly class BmaApiDirectory implements BmaDirectory
                 curl_setopt($request, CURLOPT_HTTPGET, true);
             }
         }
+        // The lookup sends the service key and mailbox only. An unknown or invalid
+        // mailbox follows the same audited failure path as an empty directory record.
+        if (is_string($body ?? null) && in_array($status, [400, 404, 422], true)) {
+            return [];
+        }
         if (!is_string($body ?? null) || $status !== 200) {
             throw new CustomUserMessageAuthenticationException('ไม่สามารถเชื่อมต่อระบบ BMA ได้ กรุณาลองใหม่หรือใช้ล็อกอินแบบ Admin');
         }
