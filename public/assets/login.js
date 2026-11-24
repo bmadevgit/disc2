@@ -2,9 +2,12 @@ const mailbox = document.getElementById('bma-username');
 const warning = document.getElementById('email-warning');
 
 mailbox.addEventListener('input', () => {
-    const name = mailbox.value.replace(/@bangkok\.go\.th$/i, '');
-    warning.classList.toggle('show', name !== mailbox.value);
-    mailbox.value = name;
+    const separator = mailbox.value.indexOf('@');
+    if (separator >= 0) {
+        mailbox.value = mailbox.value.slice(0, separator);
+        warning.classList.add('show');
+        window.setTimeout(() => warning.classList.remove('show'), 4000);
+    }
 });
 
 const tabs = document.querySelectorAll('.tab-bar a[data-mode]');
