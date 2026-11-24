@@ -29,11 +29,11 @@ final class DeadlineCalculator
             $days = $extension['requested_days'] ?? null;
             DeadlineInput::validateDays($days);
             $extendedDue = $extendedDue->modify("+$days days");
-            $extension['new_due_date'] = $extendedDue->format('Y-m-d');
+            $extension['new_due_date'] = $extendedDue;
             $history[] = $extension;
         }
 
-        return new DeadlineResult($start->format('Y-m-d'), $duration, $due->format('Y-m-d'),
+        return new DeadlineResult($start, $duration, $due,
             trim($input->startOverrideReason), $history);
     }
 

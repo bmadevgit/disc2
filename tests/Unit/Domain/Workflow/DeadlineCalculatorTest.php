@@ -94,6 +94,11 @@ final class DeadlineCalculatorTest extends TestCase
     {
         yield 'missing start' => ['', 180, '2024-08-02', []];
         yield 'invalid base deadline' => ['2024-02-05', 180, '2024-02-30', []];
+        yield 'published start beyond year 9999' => ['10000-01-01', 180, '9999-12-31', []];
+        yield 'published due beyond year 9999' => ['9999-12-31', 2, '10000-01-01', []];
+        yield 'published extension beyond year 9999' => ['9999-12-31', 1, '9999-12-31', [
+            ['requested_days' => 1, 'new_due_date' => '10000-01-01'],
+        ]];
         yield 'invalid base duration' => ['2024-02-05', 0, '2024-08-02', []];
         yield 'missing extension date' => ['2024-02-05', 180, '2024-08-02', [['requested_days' => 7]]];
         yield 'non-canonical extension date' => ['2024-02-05', 180, '2024-08-02', [['requested_days' => 7, 'new_due_date' => '2024-8-09']]];
@@ -126,6 +131,7 @@ final class DeadlineCalculatorTest extends TestCase
         yield 'missing meeting' => ['discipline_nonserious', '2024-02-29', ''];
         yield 'missing serious meeting' => ['discipline_serious', '2024-02-29', ''];
         yield 'invalid common-century leap date' => ['fact', '2100-02-29', '2100-03-01'];
+        yield 'user date beyond year 9999' => ['fact', '10000-01-01', '10000-01-01'];
         yield 'invalid month' => ['fact', '2024-13-01', '2024-01-01'];
         yield 'noncanonical date' => ['fact', '2024-2-01', '2024-02-01'];
         yield 'zero duration' => ['fact', '2024-02-01', '2024-02-01', 0];
@@ -146,6 +152,31 @@ final class DeadlineCalculatorTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         (new DeadlineCalculator())->calculate(new DeadlineInput(TrackType::from($type), $ack, $meeting, $days,
             $manualStart, $reason, $extensions));
+    }
+
+    public function testCalculatedBaseDeadlineMayCrossYear9999(): void
+    {
+        $result = (new DeadlineCalculator())->calculate(new DeadlineInput(TrackType::Fact,
+            '9999-12-31', '9999-12-31', 2));
+        self::assertSame(['9999-12-31', 2, '10000-01-01'], self::dates($result));
+        self::assertSame('10000-01-01', $result->extendedDueDate());
+    }
+
+    public function testCalculatedExtensionMayCrossYear9999(): void
+    {
+        $result = (new DeadlineCalculator())->calculate(new DeadlineInput(TrackType::Fact,
+            '9999-12-31', '9999-12-31', 1, extensions: [['requested_days' => 1, 'reason' => 'Recorded']]));
+        self::assertSame('9999-12-31', $result->dueDate);
+        self::assertSame([['requested_days' => 1, 'reason' => 'Recorded', 'new_due_date' => '10000-01-01']],
+            $result->extensions);
+        self::assertSame('10000-01-01', $result->extendedDueDate());
+    }
+
+    public function testCalculatedStartMayCrossYear9999(): void
+    {
+        $result = (new DeadlineCalculator())->calculate(new DeadlineInput(TrackType::Fact,
+            '9999-12-31', '9999-12-30', 1));
+        self::assertSame(['10000-01-01', 1, '10000-01-01'], self::dates($result));
     }
 
     public function testMaximumDurationIsInclusive(): void
