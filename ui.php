@@ -7,7 +7,7 @@ function pageHead($title) {
   }
 ?>
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title><?=h($title)?> · DISC UAT</title><link rel="stylesheet" href="<?=appUrl('uat.css?v=workflow')?>"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"></head><body>
-<div class="uat-banner">⚠️ ระบบทดสอบ UAT — ข้อมูลชุดทดสอบแยกจากระบบ Production</div>
+<div class="uat-banner">⚠️ ระบบทดสอบ — ข้อมูลชุดทดสอบแยกจากระบบ Production</div>
 <nav><a class="brand" href="<?=appUrl('index.php')?>">⚖️ DISC UAT</a><?php if(isUatSuperAdmin() || (($_SESSION['user_role']??'')==='admin')): ?><a href="<?=appUrl('admin.php')?>">Dashboard</a><?php endif; ?><span><?=h($_SESSION['user_name']??'')?></span><a href="<?=appUrl('logout.php')?>">ออกจากระบบ</a></nav><main>
 <?php }
 function pageFoot() { ?>
