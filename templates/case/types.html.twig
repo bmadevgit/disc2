@@ -1,0 +1,19 @@
+{% set selected = case.case_type ?? '' %}
+{% set types = constant('App\\Domain\\CaseFile\\CaseType::CHOICES') %}
+{% if selected and selected not in types %}
+    {% set types = types|merge([selected]) %}
+{% endif %}
+<div>
+    <label>ประเภทสำนวน
+    <select name="case_type">
+        <option value="">ยังไม่ระบุ</option>
+        {% for type in types %}
+            <option {{ type == selected ? 'selected' : '' }}>{{ type }}</option>
+        {% endfor %}
+    </select>
+    </label>
+</div>
+<div>
+    <label>รายละเอียดประเภทกรณีเลือก “อื่น ๆ”
+    <input name="case_type_other" value="{{ case.case_type_other ?? '' }}"></label>
+</div>

@@ -1,0 +1,2 @@
+# Runtime-only image. Source is bind-mounted and vendor has its own volume.
+**

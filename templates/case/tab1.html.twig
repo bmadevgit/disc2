@@ -1,0 +1,82 @@
+<section class="card">
+    <h2 class="section-title">ข้อมูลสำนวนและผู้ถูกกล่าวหา</h2>
+    {% if edit %}
+        <form method="post" action="{{ path('case_save') }}" class="grid">
+            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+            <input type="hidden" name="action" value="save_page1">
+            <input type="hidden" name="case_id" value="{{ id }}">
+            <div>
+                <label>เลขที่สำนวน</label>
+                <input name="case_number" value="{{ case['เลขที่สำนวน'] }}">
+            </div>
+            <div>
+                <label>หน่วยงานที่รับผิดชอบ</label>
+                <input name="responsible_unit" value="{{ case.responsible_unit?:case['หน่วยงานต้นเรื่อง'] }}">
+            </div>
+            <div>
+                <label>UnitLevel2/กลุ่มงาน</label>
+                <input name="unit_level2" value="{{ case.unit_level2 }}">
+            </div>
+            {% include 'case/types.html.twig' %}
+            <div>
+                <label>วันที่รับเรื่อง</label>
+                <input type="date" name="received_date" value="{{ case.received_date }}">
+            </div>
+            <div>
+                <label>แหล่งที่มา</label>
+                <select name="source_type">
+                    <option value="">-- เลือก --</option>
+                    {% for v in ['ผู้ร้อง','หน่วยงานอื่นใน กทม.','ป.ป.ช.','ป.ป.ท.','สตง.','หน่วยงานภายนอก','อื่น ๆ'] %}
+                        <option {{ case.source_type==v?'selected':'' }}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>ระบุแหล่งที่มาอื่น</label>
+                <input name="source_other" value="{{ case.source_other }}">
+            </div>
+            <div class="wide">
+                <label>ข้อกล่าวหาเบื้องต้น</label><textarea name="preliminary_allegation">{{ case.preliminary_allegation }}</textarea>
+            </div>
+            <div class="wide">
+                <h3>ผู้ถูกกล่าวหา</h3>
+                <div id="subjects" data-next-index="{{ nextSubjectIndex }}">
+                    {% for subject in subjects %}
+                        {% include 'case/subject_fields.html.twig' with {index:loop.index0} %}
+                    {% endfor %}
+                </div>
+                <template id="new-subject">
+                    {% include 'case/subject_fields.html.twig' with {subject:{}, index:'__index__'} %}
+                </template>
+                <button type="button" class="btn small gray" id="add-subject">＋ เพิ่มผู้ถูกกล่าวหา</button>
+            </div>
+            <div class="actions wide">
+                <button class="btn green">บันทึกหน้า 1</button>
+            </div>
+        </form>
+    {% else %}
+        <p>ประเภทสำนวน {{ (case.case_type??'') ?: 'ยังไม่ระบุ' }} {{ case.case_type_other??'' }}</p>
+        <p>{{ case.preliminary_allegation }}</p>
+        {% for s in subjects %}
+            <div class="subject">{{ s.label }}
+                {% if identity %}
+                    · {{ s.position_name??'' }}
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endif %}
+</section>
+{% if edit %}
+    <script>
+document.getElementById('add-subject').addEventListener('click', () => {
+    const root = document.getElementById('subjects');
+    const card = document.getElementById('new-subject').content.cloneNode(true);
+    const index = Number(root.dataset.nextIndex);
+    root.dataset.nextIndex = String(index + 1);
+    for (const field of card.querySelectorAll('[name]')) {
+        field.name = field.name.replace('__index__', index);
+    }
+    root.appendChild(card);
+});
+</script>
+{% endif %}

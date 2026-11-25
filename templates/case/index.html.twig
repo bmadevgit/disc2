@@ -1,0 +1,137 @@
+{% extends 'layout.html.twig' %}
+{% block title %}รายการสำนวน · DISC{% endblock %}
+{% block content %}
+    {% import 'workflow/macros.html.twig' as workflow %}
+    <section class="card hero">
+        <div>
+            <h1 class="section-title">สำนวนวินัย — UAT</h1>
+            <div class="muted">Role: {{ role }} · ข้อมูลเดิมที่ยังไม่มีรายบุคคลจะแสดงป้ายให้เติมข้อมูล
+            </div>
+        </div>
+        {% if role=='admin' %}
+            <a class="btn" href="{{ path('access_roles') }}">จัดการสิทธิ์</a>
+        {% endif %}
+    </section>
+    {% if is_granted('CASE_CREATE') %}
+        <section id="new" class="card" tabindex="-1">
+            <h2 class="section-title">เพิ่มสำนวน UAT</h2>
+            <p id="new-case-status" class="muted" aria-live="polite">กรอกเลขที่สำนวนและตรวจสอบหน่วยงาน ก่อนกดสร้างสำนวน</p>
+            <form id="new-case-form" method="post" action="{{ path('case_save') }}" class="grid">
+                <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+                <input type="hidden" name="action" value="create_case">
+                <div>
+                    <label>เลขที่สำนวน</label>
+                    <input name="case_number" required>
+                </div>
+                <div>
+                    <label>หน่วยงานที่รับผิดชอบ</label>
+                    <input name="responsible_unit" value="{{ app.user.scope.unit ?: app.user.sessionUnit }}" required>
+                </div>
+                <div>
+                    <label>UnitLevel2/กลุ่มงาน</label>
+                    <input name="unit_level2">
+                </div>
+                {% include 'case/types.html.twig' %}
+                <div>
+                    <label>วันที่รับเรื่อง</label>
+                    <input type="date" name="received_date">
+                </div>
+                <div class="wide">
+                    <label>ข้อกล่าวหาเบื้องต้น</label><textarea name="preliminary_allegation"></textarea>
+                </div>
+                <div class="actions wide">
+                    <button class="btn green" id="create-case-button">สร้างสำนวนและกรอกข้อมูลต่อ</button>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+    <section class="card">
+        <h2 class="section-title">รายการสำนวนที่เข้าถึงได้</h2>
+        <form method="get" action="{{ path('case_index') }}" class="grid workflow-filters">
+            <div>
+                <label>ค้นหาสำนวน
+                <input type="search" name="q" value="{{ filters.q }}"
+                placeholder="{{ identity?'เลขสำนวน หน่วยงาน ชื่อ หรือรหัสบุคคล':'เลขสำนวน หน่วยงาน หรือรหัสบุคคล' }}"></label>
+            </div>
+            {% for key, label in {'type':'ประเภทสำนวน','unit':'หน่วยงาน','stage':'ชั้นดำเนินการ','finding':'ผลรายบุคคล'} %}
+                <div>
+                    <label>{{ label }}
+                    <select name="{{ key }}">
+                        <option value="">ทั้งหมด</option>
+                        {% for value, choice in options[key] %}
+                            <option value="{{ value }}" {{ filters[key]==value?'selected':'' }}>{{ choice }}</option>
+                        {% endfor %}
+                    </select>
+                    </label>
+                </div>
+            {% endfor %}
+            <div class="actions">
+                <button class="btn">ค้นหา</button><a class="btn gray" href="{{ path('case_index') }}">ล้างตัวกรอง</a>
+            </div>
+        </form>
+        <div style="overflow:auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th>เลขที่สำนวน</th>
+                        <th>หน่วยงาน</th>
+                        <th>ประเภทสำนวน</th>
+                        <th>ชั้นดำเนินการและผล</th>
+                        <th>ผู้ถูกกล่าวหา</th>
+                        <th>บันทึก</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in visibleCases %}
+                        <tr>
+                            <td><b>{{ case['เลขที่สำนวน'] ?: 'ไม่ระบุ' }}</b></td>
+                            <td>{{ case.unit ?: 'ยังไม่ระบุ' }}</td>
+                            <td>{{ case.case_type ?: 'ยังไม่ระบุ' }}</td>
+                            <td>
+                            <div class="workflow-badges">
+                                <span class="pill workflow-stage">{{ options.stage[case.stage] ?? 'รับเรื่อง' }}</span>
+                                {% for finding, count in case.counts %}
+                                    {{ workflow.finding(finding, ' ' ~ count ~ ' ราย') }}
+                                {% endfor %}
+                                {% if not case.subject_count %}
+                                    <span class="pill workflow-neutral">ต้องเพิ่มรายบุคคล</span>
+                                {% endif %}
+                            </div>
+                            </td>
+                            <td>
+                            {% if case.subject_count %}
+                                <a href="{{ path('subject_detail', {case_id: case.id}) }}">{{ case.subject_count }} ราย</a>
+                            {% else %}
+                                –
+                            {% endif %}
+                            </td>
+                            <td>{{ case.created_at|slice(0,16) }}</td>
+                            <td><a class="btn small" href="{{ path('case_detail', {id: case.id}) }}">เปิด</a></td>
+                        </tr>
+                    {% endfor %}
+                    {% if not visibleCases %}
+                        <tr>
+                            <td colspan="7" class="muted">ไม่พบสำนวนที่ตรงกับการค้นหา</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% if is_granted('CASE_CREATE') %}
+        <script>
+(() => {
+  const form = document.getElementById('new-case-form');
+  const status = document.getElementById('new-case-status');
+  const submit = document.getElementById('create-case-button');
+  form?.addEventListener('submit', () => {
+    if (!form.checkValidity()) return;
+    submit.disabled = true;
+    submit.textContent = 'กำลังสร้างสำนวน…';
+    status.textContent = 'ระบบกำลังสร้างสำนวน โปรดรอสักครู่';
+  });
+})();
+</script>
+    {% endif %}
+{% endblock %}

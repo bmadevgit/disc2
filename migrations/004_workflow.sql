@@ -11,6 +11,9 @@ CREATE TABLE uat_tracks_new (
  UNIQUE(case_id,track_type,set_no)
 );
 INSERT INTO uat_tracks_new SELECT uat_tracks.*,1 FROM uat_tracks;
+-- Copy the historical high-water mark even if the highest issued ID was deleted.
+UPDATE sqlite_sequence SET seq=(SELECT MAX(seq) FROM sqlite_sequence WHERE name IN ('uat_tracks','uat_tracks_new'))
+ WHERE name='uat_tracks_new';
 DROP TABLE uat_tracks;
 ALTER TABLE uat_tracks_new RENAME TO uat_tracks;
 
@@ -36,6 +39,9 @@ CREATE TABLE uat_decisions_new (
 INSERT INTO uat_decisions_new SELECT d.*, (
  SELECT t.id FROM uat_tracks t WHERE t.case_id=d.case_id AND t.track_type='discipline_' || d.route_type
 ) FROM uat_decisions d;
+-- Copy the historical high-water mark even if the highest issued ID was deleted.
+UPDATE sqlite_sequence SET seq=(SELECT MAX(seq) FROM sqlite_sequence WHERE name IN ('uat_decisions','uat_decisions_new'))
+ WHERE name='uat_decisions_new';
 DROP TABLE uat_decisions;
 ALTER TABLE uat_decisions_new RENAME TO uat_decisions;
 

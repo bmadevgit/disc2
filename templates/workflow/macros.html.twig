@@ -1,0 +1,12 @@
+{% macro finding(code, suffix = '') %}
+    {% set badges = constant('App\\Application\\Query\\WorkflowLabels::FINDINGS') %}
+    {% set badge = badges[code] ?? badges.pending %}
+    <span class="pill workflow-{{ badge[1] }}">{{ badge[0] }}{{ suffix }}</span>
+{% endmacro %}
+
+{% macro discipline(data) %}
+    {{ _self.finding(data.finding ?? '') }}
+    {% for key, label in constant('App\\Application\\Query\\WorkflowLabels::DISCIPLINE_FIELDS')|merge({allegation_detail:'รายละเอียดที่บันทึกเดิม'}) %}
+        {% if data[key] ?? '' %}<p><strong>{{ label }}</strong><br><span class="workflow-remarks">{{ data[key] }}</span></p>{% endif %}
+    {% endfor %}
+{% endmacro %}

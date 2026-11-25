@@ -1,0 +1,41 @@
+{
+    "name": "bmadevgit/disc2",
+    "description": "DISC2 disciplinary case application",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "ext-curl": "*",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "ext-pdo_sqlite": "*",
+        "symfony/asset": "7.4.*",
+        "symfony/console": "7.4.*",
+        "symfony/form": "7.4.*",
+        "symfony/framework-bundle": "7.4.*",
+        "symfony/monolog-bundle": "^3.10",
+        "symfony/runtime": "7.4.*",
+        "symfony/security-bundle": "7.4.*",
+        "symfony/security-csrf": "7.4.*",
+        "symfony/twig-bundle": "7.4.*",
+        "symfony/validator": "7.4.*",
+        "symfony/yaml": "7.4.*"
+    },
+    "require-dev": {
+        "ext-simplexml": "*",
+        "phpunit/phpunit": "^11.5",
+        "symfony/browser-kit": "7.4.*",
+        "symfony/css-selector": "7.4.*",
+        "symfony/phpunit-bridge": "7.4.*"
+    },
+    "autoload": {"psr-4": {"App\\": "src/"}},
+    "autoload-dev": {"psr-4": {"App\\Tests\\": "tests/"}},
+    "config": {
+        "allow-plugins": {"symfony/runtime": true},
+        "platform": {"php": "8.2.0"},
+        "sort-packages": true
+    },
+    "extra": {
+        "runtime": {"disable_dotenv": true}
+    }
+}

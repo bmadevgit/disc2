@@ -32,8 +32,10 @@ flowchart TD
 
 ## 1. รับสิทธิ์และเตรียมเครื่อง
 
+การติดตั้ง PHP ในหัวข้อนี้ใช้สำหรับเปิดเว็บจาก PowerShell วิธี Docker Compose บน WSL 2 อยู่ในหัวข้อ 3
+
 1. แจ้ง GitHub username ให้ผู้ดูแล กด **Accept invitation** ด้วยบัญชีที่ถูกเชิญ แล้วเปิด [หน้ารายการไฟล์ของ DISC2](https://github.com/bmadevgit/disc2) ให้เห็น README
-2. ติดตั้ง [Git for Windows](https://gitforwindows.org/) พร้อม Git Credential Manager, [VS Code](https://code.visualstudio.com/) และ PHP 8.5 สำหรับ Windows ให้ `php.exe` อยู่ใน PATH ใช้ `php --ini` ดูว่า PHP อ่าน `php.ini` ไฟล์ใด แล้วเปิด `extension=pdo_sqlite` และ `extension=curl` ตามคู่มือ PHP [การติดตั้ง PHP บน Windows](https://www.php.net/manual/en/install.windows.php)
+2. ติดตั้ง [Git for Windows](https://gitforwindows.org/) พร้อม Git Credential Manager, [VS Code](https://code.visualstudio.com/) และ PHP 8.5 สำหรับ Windows ให้ `php.exe` อยู่ใน PATH ใช้ `php --ini` ดูว่า PHP อ่าน `php.ini` ไฟล์ใด ติดตั้ง Composer 2 และเปิดส่วนขยาย `pdo_sqlite`, `curl`, `mbstring` และ `intl` ตามคู่มือ PHP [การติดตั้ง PHP บน Windows](https://www.php.net/manual/en/install.windows.php)
 3. เปิด PowerShell ใหม่ ตรวจว่า `git --version` และ `php -v` ใช้งานได้ ถ้า Git เปิดหน้าล็อกอินระหว่าง clone หรือ push ให้เลือกบัญชี GitHub ที่กดรับคำเชิญ [การลงชื่อเข้า GitHub ด้วย Git Credential Manager](https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git)
 
 ## 2. Clone และเปิดโฟลเดอร์ที่ถูกต้อง
@@ -50,7 +52,7 @@ git remote get-url origin
 code .
 ```
 
-ผลของ `git remote get-url origin` ควรเป็น `https://github.com/bmadevgit/disc2.git` หากคำสั่ง `code .` ยังใช้ไม่ได้ เปิด VS Code แล้วเลือก **File → Open Folder** ไปที่ `%USERPROFILE%\dev\disc2` โฟลเดอร์ที่ถูกต้องมี `README.md`, `AGENTS.md`, `index.php` และโฟลเดอร์ `tools` [คู่มือ clone ของ GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
+ผลของ `git remote get-url origin` ควรเป็น `https://github.com/bmadevgit/disc2.git` หากคำสั่ง `code .` ยังใช้ไม่ได้ เปิด VS Code แล้วเลือก **File → Open Folder** ไปที่ `%USERPROFILE%\dev\disc2` โฟลเดอร์ที่ถูกต้องมี `README.md`, `AGENTS.md`, `public/index.php` และโฟลเดอร์ `tools` [คู่มือ clone ของ GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
 
 ## 3. ตั้งชื่อ commit เปิดเว็บ และใช้ Codex
 
@@ -62,19 +64,82 @@ git config user.name "ชื่อของคุณ"
 git config user.email "อีเมล GitHub ของคุณ"
 php --ri pdo_sqlite
 php --ri curl
+composer install
 php tools/init.php
 powershell -NoProfile -File .\tools\serve.ps1 -Port 8760
 ```
 
 - ชื่อและอีเมล Git ระบุผู้เขียน commit ใช้อีเมลที่ผูกกับ GitHub หรืออีเมล `noreply` ของบัญชีตน ส่วนการ clone หรือ push ใช้สิทธิ์บัญชี GitHub ที่ผู้ดูแลเชิญ
-- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` แล้วลองเข้าเว็บที่ `http://127.0.0.1:8760/` ด้วย `demo-owner` จะเห็นสำนวน `DEMO-001`
+- รัน `php tools/init.php` ครั้งแรกต่อหนึ่งสำเนา เปิด `runtime/demo-accounts.json` ดูรหัสของ `demo-admin`, `demo-owner` และ `demo-reader` สำหรับเว็บทดสอบ Symfony รันชุดทดสอบด้วย `php vendor/bin/phpunit`
 - ติดตั้ง **Codex** จากหน้า Extensions แล้วลงชื่อด้วยบัญชี ChatGPT ของตน ลองสั่ง “อ่าน AGENTS.md แล้วอธิบายว่าแท็บ 2 คำนวณวันเริ่มนับอย่างไร พร้อมทดสอบด้วยข้อมูลสมมติ” [คู่มือ Codex ใน VS Code](https://learn.chatgpt.com/docs/codex/ide)
 - ถ้าพอร์ต 8760 ถูกใช้ เปลี่ยนพอร์ตในคำสั่งแล้วเปิด URL ด้วยหมายเลขเดียวกัน กด Ctrl+C เพื่อหยุดเว็บ เมื่อต้องปรับฐานทดสอบที่มีอยู่ด้วย migrations ใหม่ ให้รันจากรากโครงการดังนี้
 
 ```powershell
-$env:DISC2_DEV = '1'
-try { php migrate.php } finally { Remove-Item Env:\DISC2_DEV }
+php bin/console app:migrate --env=dev
 ```
+
+### เปิดเว็บด้วย Docker Compose บน WSL 2
+
+ใช้เทอร์มินัลของดิสโทร WSL 2 ที่เข้าถึง Docker Engine และใช้คำสั่ง `docker compose` ได้ ถ้าใช้ Docker Desktop ให้เปิด WSL Integration สำหรับดิสโทรนั้น วิธีนี้ใช้ PHP ในคอนเทนเนอร์ จึงไม่ต้องติดตั้ง PHP ใน WSL
+
+รันจากรากโครงการ `disc2` ที่มี `compose.yaml` คำสั่ง `export` ตั้งให้คอนเทนเนอร์สร้างไฟล์ทดสอบด้วย UID และ GID ของผู้ใช้ WSL ให้รันในเทอร์มินัลที่ใช้สั่ง Compose
+
+ตรวจว่า `docker info` แสดง Docker Engine เวอร์ชัน `28.0.0` ขึ้นไปก่อนสร้างอิมเมจ รุ่นก่อนหน้านี้อาจเปิดให้เครื่องอื่นในเครือข่ายชั้น 2 เดียวกันเข้าถึงพอร์ตที่เผยแพร่บน `localhost` ได้ [เอกสาร Docker เรื่องการเผยแพร่พอร์ต](https://docs.docker.com/engine/network/port-publishing/)
+
+```bash
+docker info --format '{{.ServerVersion}}'
+docker compose version
+export DISC2_UID="$(id -u)" DISC2_GID="$(id -g)"
+docker compose build app
+docker compose run --rm app composer install --no-interaction
+```
+
+สร้างฐานและบัญชีสมมติครั้งเดียวต่อสำเนาโครงการ ข้ามขั้นตอนนี้ถ้าสำเนานั้นมีฐานและบัญชีสมมติอยู่แล้ว
+
+```bash
+docker compose run --rm app php tools/init.php
+```
+
+ตรวจ runtime และเริ่มเว็บ Symfony
+
+```bash
+docker compose run --rm app vendor/bin/phpunit tests/Smoke
+docker compose up -d app
+```
+
+โหมด Docker dev ใช้ bind mount จากโฟลเดอร์ที่สั่ง Compose ไปที่ `/app` โดยตรง ดังนั้นการแก้ไฟล์ใน WSL จะมีผลใน container ทันที ส่วน `/app/vendor` ใช้ named volume แยก เมื่อเปลี่ยน branch หรือ `composer.lock` ให้รัน `docker compose run --rm app composer install` อีกครั้ง
+
+เว็บที่ `http://127.0.0.1:8760/` ใช้ `public/index.php` เป็น front controller ตรวจเส้นทางที่มีด้วย `docker compose exec app php bin/console debug:router` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
+
+หยุดเว็บจากรากโครงการด้วยคำสั่งด้านล่าง ฐานและบัญชีสมมติยังอยู่สำหรับการเปิดเว็บครั้งถัดไป
+
+```bash
+docker compose down
+```
+
+### IIS Server-A ที่ /exam/disc2
+
+ผู้ดูแลสร้าง ZIP จากแท็กที่ลงนาม ตรวจ SHA-256 และซ้อม rollback บน IIS staging ก่อนเปิดรับการเขียน รุ่น production ต้องเก็บข้อมูลและ audit ที่บันทึกหลัง cutover ทั้งหมด [คู่มือออกรุ่นและย้อนรุ่นบน IIS](docs/IIS-DEPLOYMENT.md)
+
+ทั้งบน staging และในรอบ production ที่ได้รับอนุมัติ ให้ทำตามขั้นตอนก่อนสลับรุ่นขณะที่ IIS ยังชี้ไปยังรุ่นเดิม
+
+1. หยุดการเขียนจากเว็บและงานเบื้องหลัง ปิดการเข้าสู่ระบบ รอให้ธุรกรรมที่ค้างจบ และบันทึกเวลาที่หยุด
+2. เก็บแพ็กเกจและการตั้งค่า IIS เดิม รวมถึง physical path, binding, handler และตัวตนของ application pool สำรองไฟล์ config ภายนอกไว้ในพื้นที่ส่วนตัว ตรวจว่า SHA-256 ของสำเนา config ตรงกับต้นฉบับและบันทึกตำแหน่งสำหรับกู้คืน หากใช้ config ผู้ช่วย AI ให้สำรองไฟล์นั้นแยกและตรวจ SHA-256 กับต้นฉบับด้วย
+3. บันทึกพาธฐาน SQLite และเลข audit ID สูงสุดก่อนสลับรุ่น (ใช้ศูนย์หากยังไม่มีรายการ audit) ทำ online backup ที่รวมข้อมูลที่ commit ใน WAL เปิดสำเนาแยกเพื่อตรวจว่าเลข audit ID ตรงกัน ผล `PRAGMA integrity_check` เป็น `ok` และ `PRAGMA foreign_key_check` คืนศูนย์แถว บันทึก SHA-256 และตำแหน่งสำเนาไว้ในบันทึกการเปลี่ยนรุ่น
+
+ผู้ดูแลต้องบันทึกผลครบทั้งสามข้อก่อนเริ่มขั้นตอนถัดไป หากตรวจไม่ผ่าน ให้คงรุ่นเดิมและปิดรับการเขียนต่อไป [รายการตรวจก่อนสลับรุ่น](docs/rewrite/cutover-checklist.md)
+
+หลังผ่านการตรวจ เมื่อทดสอบบน staging ให้คง application alias `/exam/disc2` และโฟลเดอร์ติดตั้ง `C:\inetpub\wwwroot\exam\disc2` เปลี่ยน Physical Path ของ IIS application ครั้งเดียวเป็น `C:\inetpub\wwwroot\exam\disc2\public` ให้ IIS อ่าน `web.config` จากโฟลเดอร์นี้ ติดตั้ง IIS URL Rewrite และเปิด PHP FastCGI handler สำหรับ `index.php` กฎ rewrite ใช้เส้นทางสัมพัทธ์และส่ง query string ต่อให้ Symfony
+
+ใช้ PHP 8.2 ขึ้นไป พร้อม PDO SQLite, cURL, mbstring, intl และ OPcache ตั้ง `APP_ENV=prod`, `APP_DEBUG=0` และ `APP_SECRET` ส่วนตัวในสภาพแวดล้อมของ FastCGI และ CLI เก็บการตั้งค่าของ Server-A ที่ `C:\inetpub\private\disc2-config.php` กับฐาน SQLite ไว้นอก `public` ให้ application-pool identity อ่าน source/config/vendor และเขียน `var/cache`, `var/log` และ `var/sessions` ได้
+
+ผู้ช่วย AI สำหรับผู้ดูแลใช้ไฟล์ `C:\inetpub\private\disc2-ai.php` หรือพาธจาก `DISC2_AI_CONFIG_FILE` ไฟล์นี้คืนค่า array ที่มี `base_url`, `api_key` และ `model` หน้า Dashboard ส่งเฉพาะจำนวนรวมและสถิติกำหนดเวลา โหมด dev/test ปิดการเรียก Gateway เมื่อเปิดใช้บน IIS ให้ตั้งพาธเดียวกันใน FastCGI และ CLI ตรวจสิทธิ์อ่านของ application pool ที่ไฟล์และทุกโฟลเดอร์บรรพบุรุษ แล้วส่งพาธสำเนากู้คืนที่ตรวจแล้วผ่าน `-AiConfigBackup` หากไม่เปิดใช้และไม่มีไฟล์มาตรฐานให้ละพารามิเตอร์นี้ได้
+
+กำหนด `database_path` ใน array ที่ไฟล์ config ภายนอกส่งคืน ให้ชี้ไปยังไฟล์ฐาน SQLite เดิมด้วยพาธเต็ม หากจัดเก็บ config ที่อื่น ให้ตั้ง `DISC2_CONFIG_FILE` ให้ตรงกันใน FastCGI และ CLI สำหรับ staging ให้ตั้ง `bma_endpoint` และคีย์ของบริการ BMA ทดสอบที่ได้รับอนุมัติ รัน `tools/iis-smoke.ps1` ด้วยพารามิเตอร์ของไซต์และฐานที่ตรวจแล้วพร้อม `-ApplyMigrations` ตามคู่มือ IIS จากนั้นรันซ้ำโดยไม่ใส่สวิตช์นี้ เมื่อผ่านแล้วจึงทดสอบเข้าสู่ระบบด้วยบัญชีที่อนุมัติ ส่วน dev/test ใช้ `runtime/disc2-dev.sqlite` ที่สร้างจาก `php tools/init.php`
+
+ใน config ภายนอก กำหนด `trusted_hosts` เป็นรายชื่อโฮสต์จริงของ IIS และ `trusted_proxies` เป็นรายการ IP หรือ CIDR ของ reverse proxy ที่ได้รับอนุมัติ เมื่อ IIS รับคำขอโดยตรงให้ใช้รายการ proxy ว่าง ระบบนับการเข้าสู่ระบบตาม IP ที่ Symfony ตรวจจากการเชื่อมต่อ
+
+ตรวจด้วย `composer check-platform-reqs --no-dev` และ `php bin/console cache:warmup --env=prod --no-debug` ใน staging จากนั้นตรวจ HTTP ผ่าน IIS ที่ mount จริง ชุดทดสอบ `tests/Smoke/KernelBootTest.php` จำลอง FastCGI และตรวจไฟล์กฎสำหรับการพัฒนา
 
 ## 4. ส่งงานผ่าน Pull Request
 
@@ -91,13 +156,13 @@ git switch -c feature/case-filter
 ```powershell
 git status --short
 git diff
-git add -- index.php
+git add -- public/index.php
 git diff --cached
 git commit -m "ปรับตัวกรองสำนวน"
 git push -u origin feature/case-filter
 ```
 
-บรรทัด `git add -- index.php` เป็นตัวอย่าง ให้แทนชื่อไฟล์ตามงาน จากนั้นเปิด GitHub กด **Compare & pull request** หรือ **Pull requests → New pull request** เลือก **base** เป็น `main` และ **compare** เป็น `feature/case-filter` ระบุสิ่งที่แก้และวิธีทดสอบ แล้วกด **Create pull request** ผู้ดูแลเป็นคนรวมงาน เมื่อมีขอแก้เพิ่ม ให้ commit แล้ว push จาก branch เดิมเพื่ออัปเดต PR เดิม เมื่อรวมเสร็จ ให้ดึง `main` ล่าสุดก่อนเริ่มงานถัดไป
+บรรทัด `git add -- public/index.php` เป็นตัวอย่าง ให้แทนชื่อไฟล์ตามงาน จากนั้นเปิด GitHub กด **Compare & pull request** หรือ **Pull requests → New pull request** เลือก **base** เป็น `main` และ **compare** เป็น `feature/case-filter` ระบุสิ่งที่แก้และวิธีทดสอบ แล้วกด **Create pull request** ผู้ดูแลเป็นคนรวมงาน เมื่อมีขอแก้เพิ่ม ให้ commit แล้ว push จาก branch เดิมเพื่ออัปเดต PR เดิม เมื่อรวมเสร็จ ให้ดึง `main` ล่าสุดก่อนเริ่มงานถัดไป
 
 ## เคยเริ่มด้วย Git bundle อยู่แล้ว
 
@@ -114,5 +179,5 @@ git remote get-url origin
 ### ไฟล์อ้างอิงของ DISC2
 
 - `AGENTS.md` บริบทให้ Codex · `index.php` หน้ารายการ · `case.php` หน้าสำนวน
-- `workflow.php` และ `workflow.js` กติกาคำนวณวัน · `migrations/` ไฟล์ปรับโครงสร้างฐาน
+- `src/Domain/Workflow/` และ `public/assets/workflow.js` กติกาคำนวณวัน · `migrations/` ไฟล์ปรับโครงสร้างฐาน
 - ใช้ข้อมูลสมมติในเครื่องและภาพทดสอบ เก็บฐานสำนวนจริงและค่าลับไว้ในพื้นที่ของผู้ดูแลนอก Git

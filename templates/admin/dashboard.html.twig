@@ -1,0 +1,87 @@
+{% extends 'layout.html.twig' %}
+{% block title %}Dashboard UAT · DISC{% endblock %}
+{% block content %}
+    <section class="card hero">
+        <div>
+            <h1 class="section-title">Dashboard UAT</h1>
+            <div class="muted">สถิติ {{ ({executive:'ทุกหน่วยงาน',unit_head:'เฉพาะหน่วยงานของท่าน',admin:'ผู้ดูแลระบบ'}[role]) }}
+            </div>
+        </div>
+        {% if isAdmin %}
+            <a class="btn" href="{{ path('access_roles') }}">จัดการสิทธิ์</a>
+        {% endif %}
+    </section>
+    <section class="metrics">
+        <div class="metric">
+            <span>สำนวนทั้งหมด</span><b>{{ (stats.total ?? 0) }}</b>
+        </div>
+        <div class="metric">
+            <span>อยู่ชั้นสอบสวน</span><b>{{ (stats.discipline ?? 0) }}</b>
+        </div>
+        <div class="metric">
+            <span>ปิดสำนวนแล้ว</span><b>{{ (stats.closed ?? 0) }}</b>
+        </div>
+        <div class="metric">
+            <span>ผู้ถูกกล่าวหา</span><b>{{ stats.subjects }}</b>
+        </div>
+    </section>
+    {% if isAdmin %}
+        <section class="card">
+            <h2 class="section-title">สรุปผู้บริหารด้วย AI</h2>
+            <p class="muted">วิเคราะห์จากจำนวนสำนวนและกำหนดเวลาเท่านั้น ไม่ส่งข้อมูลผู้ถูกกล่าวหา หรือรายละเอียดสำนวนไปยัง AI</p>
+            <button type="button" class="btn green" id="ai-dashboard-button">วิเคราะห์สถานะ</button>
+            <div id="ai-dashboard-result" class="notice" style="display:none;margin-top:16px;white-space:pre-wrap" aria-live="polite">
+            </div>
+        </section>
+        <section class="card">
+            <h2 class="section-title">ติดตามกำหนดเวลา</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>สำนวน</th>
+                        <th>กระบวนการ</th>
+                        <th>ครบกำหนด</th>
+                        <th>สถานะ</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        {% set left = item.left %}
+                        <tr>
+                            <td>{{ item['เลขที่สำนวน'] }}</td>
+                            <td>{{ item|track_title }}</td>
+                            <td>{{ item.effective_due }}</td>
+                            <td class="status" style="color:{{ left<0?'#b42318':'#9a6700' }}">{{ left<0?'เลย ' ~ (left|abs) ~ ' วัน':'เหลือ ' ~ left ~ ' วัน' }}</td>
+                            <td><a class="btn small" href="{{ item.track_type == 'fact' ? path('case_detail',{id:item.case_id,page:2}) : path('discipline_track',{case_id:item.case_id,type:item.track_type,track_id:item.id}) }}">ดู</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        <script>
+            const button = document.getElementById('ai-dashboard-button');
+            const result = document.getElementById('ai-dashboard-result');
+            button.addEventListener('click', async () => {
+                button.disabled = true;
+                button.textContent = 'กำลังวิเคราะห์…';
+                result.style.display = 'block';
+                result.textContent = 'กำลังประมวลผลสถิติ…';
+                try {
+                    const response = await fetch({{ path('dashboard_ai')|json_encode(15)|raw }}, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: new URLSearchParams({csrf: {{ csrf_token('disc2_form')|json_encode(15)|raw }}})
+                    });
+                    const data = await response.json();
+                    result.textContent = data.ok ? data.summary : (data.message || 'ไม่สามารถวิเคราะห์ได้ในขณะนี้');
+                } catch {
+                    result.textContent = 'AI Gateway ไม่พร้อม กรุณาลองใหม่';
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'วิเคราะห์สถานะ';
+                }
+            });
+        </script>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    default_locale: th
+    trusted_hosts: []
+    trusted_proxies: []
+    router:
+        utf8: true
+    session:
+        name: DISC2SFSESSID
+        cookie_httponly: true
+        cookie_secure: auto
+        cookie_samesite: lax
+        save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
+    form: true
+    csrf_protection: true
+    validation: { enable_attributes: true }
+    assets: ~
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file
+
+when@dev:
+    parameters:
+        env(APP_SECRET): synthetic-local-development
+
+when@prod:
+    framework:
+        trusted_hosts: '%env(disc2_hosts:default:disc2.external_config:DISC2_CONFIG_FILE)%'
+        trusted_proxies: '%env(disc2_proxies:default:disc2.external_config:DISC2_CONFIG_FILE)%'
+        trusted_headers: ['x-forwarded-for', 'x-forwarded-proto']

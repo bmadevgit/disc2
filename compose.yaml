@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        DISC2_UID: "${DISC2_UID:-1000}"
+        DISC2_GID: "${DISC2_GID:-1000}"
+    user: "${DISC2_UID:-1000}:${DISC2_GID:-1000}"
+    environment:
+      APP_ENV: dev
+      COMPOSER_HOME: /tmp/composer
+      DISC2_DEV: "1"
+      DISC2_DOCKER: "1"
+    ports:
+      - "127.0.0.1:8760:8760"
+    volumes:
+      - .:/app
+      - vendor:/app/vendor
+    command: [php, -S, "0.0.0.0:8760", -t, public, tools/dev-router.php]
+
+volumes:
+  vendor:

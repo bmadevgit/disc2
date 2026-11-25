@@ -3,9 +3,14 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
-require dirname(__DIR__).'/migrate.php';
+use App\Command\MigrateCommand;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
-$runtime = dirname(__DIR__).'/runtime';
+require dirname(__DIR__).'/vendor/autoload.php';
+
+// The characterization runner supplies a private directory for each synthetic database.
+$runtime = $argv[1] ?? dirname(__DIR__).'/runtime';
 $dbPath = $runtime.'/disc2-dev.sqlite';
 $credentialsPath = $runtime.'/demo-accounts.json';
 date_default_timezone_set('Asia/Bangkok');
@@ -31,7 +36,11 @@ try {
     $pdo = new PDO('sqlite:'.$temp,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
     $pdo->exec('PRAGMA foreign_keys=ON');
     $pdo->exec(file_get_contents(__DIR__.'/base-schema.sql'));
-    disc2Migrate($pdo);
+    $migration = new MigrateCommand($pdo, dirname(__DIR__).'/migrations');
+    if ($migration->run(new ArrayInput([]), new ConsoleOutput()) !== 0) {
+        throw new RuntimeException('Synthetic database migration failed.');
+    }
+    unset($migration);
 
     $pdo->beginTransaction();
     $accounts = [];
@@ -74,7 +83,7 @@ try {
         unlink($credentialsPath);
         throw new RuntimeException('Could not publish the demo database.');
     }
-    echo "Demo data is ready. Open runtime/demo-accounts.json for your test logins.\n";
+    echo isset($argv[1]) ? "Synthetic database initialized.\n" : "Demo data is ready. Open runtime/demo-accounts.json for your test logins.\n";
 } catch (Throwable $error) {
     fwrite(STDERR,$error->getMessage().PHP_EOL);
     $failed = true;

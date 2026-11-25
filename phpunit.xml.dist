@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php" cacheDirectory=".phpunit.cache" colors="true">
+    <php>
+        <server name="APP_ENV" value="test"/>
+        <server name="APP_SECRET" value="synthetic-runtime-tests"/>
+    </php>
+    <testsuites>
+        <testsuite name="DISC2"><directory>tests</directory></testsuite>
+    </testsuites>
+</phpunit>

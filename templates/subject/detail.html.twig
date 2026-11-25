@@ -1,0 +1,107 @@
+{% extends 'layout.html.twig' %}
+{% block title %}{{ person ? 'รายละเอียดรายบุคคล' : 'ผู้ถูกกล่าวหาในสำนวน' }} · DISC{% endblock %}
+{% block content %}
+    {% import 'workflow/macros.html.twig' as workflow %}
+    <section class="card">
+        <a href="{{ path('case_index') }}">← รายการสำนวน</a>
+        <h1 class="section-title">ผู้ถูกกล่าวหาในสำนวน {{ case['เลขที่สำนวน'] ?: '#' ~ caseId }}</h1>
+        <div class="actions">
+            {% for candidate in people %}
+                <a class="btn small {{ (candidate.id==sid)?'green':'' }}"
+                href="{{ path('subject_detail', {case_id: caseId, subject_id: candidate.id}) }}">{{ candidate.label }}</a>
+            {% endfor %}
+        </div>
+        {% if not people %}
+            <p>ยังไม่มีข้อมูลผู้ถูกกล่าวหา</p>
+        {% endif %}
+    </section>
+    {% if person %}
+        <section class="card">
+            <h2 class="section-title">{{ person.label }}</h2>
+            <p>ชั้นปัจจุบัน <strong>{{ latest ? (latest|track_title) : 'รับเรื่อง' }}</strong></p>
+            {% if history %}
+                <details>
+                    <summary>ประวัติสถานะบุคคล</summary>
+                    <ul>
+                        {% for record in history %}
+                            <li>{{ record.effective_date ~ ' ' ~ record.status_name ~ ' ' ~ record.reason }}</li>
+                        {% endfor %}
+                    </ul>
+                </details>
+            {% endif %}
+        </section>
+        {% for period in periods %}
+            {% with period %}
+                <section class="card">
+                    <h2 class="section-title">{{ (round|track_title) }}</h2>
+                    {% if escalation %}
+                        <p class="notice warn">ยืนยันยกระดับเมื่อ {{ escalation.effective_date }} · อ้างอิง {{ escalation.reference }}
+                        · บันทึกโดย {{ escalation.actor_name ?: 'เจ้าหน้าที่' }} เมื่อ {{ escalation.created_at }} (UTC)</p>
+                    {% endif %}
+                    {% if round.track_type == 'fact' %}
+                        {{ workflow.finding(finding.finding ?? '') }}
+                        {% if (finding.allegation_detail ?? null) %}
+                            <p class="workflow-remarks">{{ finding.allegation_detail }}</p>
+                        {% endif %}
+                    {% else %}
+                        {{ workflow.discipline(finding) }}
+                        {% if (finding.recommend_serious ?? null) %}
+                            <p>คกก. เสนอให้สอบสวนอย่างร้ายแรง</p>
+                        {% endif %}
+                    {% endif %}
+                    <details open>
+                        <summary>กำหนดเวลาและคำสั่ง คกก.</summary>
+                        <dl>
+                            <dt>วันที่ประธานรับทราบคำสั่ง</dt>
+                            <dd>{{ dates.acknowledged_date ?: '–' }}</dd>
+                            <dt>วันประชุมนัดแรก</dt>
+                            <dd>{{ dates.first_meeting_date ?: '–' }}</dd>
+                            <dt>วันเริ่มนับ</dt>
+                            <dd>{{ dates.start_date ?: '–' }}</dd>
+                            <dt>ระยะเวลา</dt>
+                            <dd>{{ dates.duration_days ?: '–' }} วัน</dd>
+                            <dt>วันครบกำหนด</dt>
+                            <dd>{{ dates.due_date ?: '–' }}</dd>
+                            {% if dates.start_override_reason != '' %}
+                                <dt>เหตุผลที่แก้วันเริ่มนับ</dt>
+                                <dd>{{ dates.start_override_reason }}</dd>
+                            {% endif %}
+                            <dt>ผู้ถูกกล่าวหาในชุด</dt>
+                            <dd>{{ memberCount }} ราย</dd>
+                        </dl>
+                        {% if orders %}
+                            <h3>คำสั่งคณะกรรมการ</h3>
+                            <ul>
+                                {% for order in orders %}
+                                    <li>{{ {'appoint':'แต่งตั้ง','change_committee':'เปลี่ยนแปลงคณะกรรมการ','amend_order':'แก้ไขเพิ่มเติมคำสั่ง'}[order.event_type] ?? '' }} {{ order.order_date }} {{ order.order_number }} {{ order.detail }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                        {% if extensions %}
+                            <h3>การขยายเวลา</h3>
+                            <ul>
+                                {% for extension in extensions %}
+                                    <li>ครั้งที่ {{ extension.sequence_no }} · {{ extension.requested_days }} วัน · ครบกำหนด {{ extension.new_due_date }}
+                                    <br>{{ extension.completed_work }} · {{ extension.reason }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </details>
+                    {% for decision in decisions %}
+                        <details open>
+                            <summary>คำสั่งและรายงาน ก.ก.</summary>
+                            {% for field, label in {'report_kk_date':'วันที่รายงาน ก.ก.','kk_resolution_date':'วันที่มีมติ ก.ก.','kk_resolution':'มติ ก.ก.', 'commander_decision':'ผลการพิจารณาของผู้บังคับบัญชา','order_number':'เลขที่คำสั่ง','order_date':'วันที่คำสั่ง', 'finished_date':'วันที่เรื่องเสร็จ','termination_reason':'เหตุผลที่ยุติเรื่อง','proposal_letter_number':'เลขที่หนังสือเสนอ', 'other_outcome':'ผลอื่น','other_note':'หมายเหตุ'} %}
+                                {% if (decision[field] ?? '') != '' %}
+                                    <p><strong>{{ label }}</strong> <span class="workflow-remarks">{{ decision[field] }}</span></p>
+                                {% endif %}
+                            {% endfor %}
+                            {% for report in decision.reports %}
+                                <p>รายงานครั้งที่ {{ report.sequence_no }} · {{ report.report_date ~ ' ' ~ report.letter_number ~ ' ' ~ report.resolution_text ~ ' ' ~ report.resolution_action ~ ' ' ~ report.note }}</p>
+                            {% endfor %}
+                        </details>
+                    {% endfor %}
+                </section>
+            {% endwith %}
+        {% endfor %}
+    {% endif %}
+{% endblock %}

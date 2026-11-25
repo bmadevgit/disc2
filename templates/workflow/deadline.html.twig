@@ -1,0 +1,33 @@
+<div>
+    <label>วันที่ประธานรับทราบคำสั่ง
+    <input type="date" name="acknowledged_date" value="{{ track.acknowledged_date??'' }}"></label>
+</div>
+<div>
+    <label>วันประชุมนัดแรก
+    <input type="date" name="first_meeting_date" value="{{ track.first_meeting_date??'' }}"></label>
+</div>
+<div>
+    <label>{{ editableDays ? 'ระยะเวลาตามคำสั่ง (วัน)' : (days == 180 ? 'ระยะเวลาที่บันทึกไว้ (วัน)' : 'ระยะเวลาตามกฎหมาย (วัน)') }}
+    <input type="number" min="1" name="duration_days" value="{{ days }}" {{ editableDays ? 'required' : 'readonly' }}>
+    </label>
+</div>
+<div>
+    <label>การกำหนดวันเริ่มนับ
+    <select name="start_mode">
+        <option value="auto">อัตโนมัติ</option>
+        <option value="manual" {{ (track.start_override_reason ?? '') ? 'selected':'' }}>กำหนดเอง</option>
+    </select>
+    </label>
+</div>
+<div>
+    <label>วันเริ่มนับ (แก้ได้)
+    <input type="date" name="start_date" value="{{ track.start_date??'' }}"></label>
+</div>
+<div>
+    <label>เหตุผลที่แก้วันเริ่มนับ
+    <input name="start_override_reason" value="{{ track.start_override_reason??'' }}"></label>
+</div>
+<div>
+    <label>วันครบกำหนด
+    <input type="text" name="preview_due" readonly value="{{ track.due_date??'' }}"></label>
+</div>

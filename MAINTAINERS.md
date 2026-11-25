@@ -22,10 +22,11 @@
 
 ## นำรุ่นที่ผ่านการตรวจขึ้น Server-A
 
-1. ผู้ดูแลติดแท็ก `v...` แล้วรัน `powershell -NoProfile -File .\tools\release.ps1 -Tag <tag> -Output <ไฟล์.zip>` ตรวจ SHA-256 และเนื้อหา ZIP
-2. ก่อนนำ ZIP รุ่นแรกขึ้น ให้เตรียม `C:\inetpub\private\disc2-config.php` ให้คืนค่า `super_admin_ids` เป็นอาร์เรย์ของรหัสผู้ดูแลเดิมใน `auth.php` บน Server-A รักษาค่า `bma_secret_key` เดิม และเก็บไฟล์ตั้งค่าภายนอก webroot ค่า AI ใช้ไฟล์ตั้งค่าภายนอกเดิม
-3. พักเฉพาะเส้นทาง DISC2 แล้วสำรองโค้ด ค่าตั้งเฉพาะเครื่อง และฐาน DISC2 ด้วย SQLite online backup จากจุดเดียวกัน ตรวจ `PRAGMA integrity_check` คัดเฉพาะไฟล์ของ ZIP แล้วรัน `php migrate.php` ด้วย PHP ของ IIS จากโฟลเดอร์ DISC2
-4. ตรวจการเข้าสู่ระบบ BMA และ Admin การเปิดรายการและรายละเอียดสำนวน และ `PRAGMA foreign_key_check` ก่อนเปิดรับการบันทึก หากตรวจไม่ผ่าน ให้กู้โค้ด ค่าตั้ง และฐานจากจุดสำรองเดียวกัน
+ตั้ง `bma_endpoint` ใน config ของ staging ให้เป็น HTTPS ของ BMA ทดสอบพร้อมกุญแจของระบบนั้น และตรวจ URL กับค่าที่อนุมัติก่อนย้ายฐาน
+
+ผู้ดูแลใช้แท็ก Git ที่ลงนาม ตรวจ fingerprint ของผู้ลงนามและ SHA-256 ของ ZIP แล้วซ้อมผ่าน IIS staging ที่ `/exam/disc2` ก่อนอนุมัติขึ้น Server-A ใช้ `php bin/console app:migrate --env=prod --no-debug` หลังหยุดรับการเขียนและตรวจ SQLite online backup แล้ว
+
+เมื่อย้อนรุ่น production ให้เก็บฐานปัจจุบัน สำรองอีกครั้งหลังหยุดการเขียน แล้วเปลี่ยนเฉพาะโค้ดและค่าตั้งที่เข้ากันได้ ตรวจผ่านรุ่นเก่าว่าอ่านข้อมูลและ audit หลัง cutover ครบ ส่วน demo สามารถกู้ฐานก่อน cutover ได้ [ขั้นตอน build, deployment และ rollback](docs/IIS-DEPLOYMENT.md)
 
 ## รับ Git bundle สำหรับทีมที่ยังไม่ได้ย้ายงานเดิม
 

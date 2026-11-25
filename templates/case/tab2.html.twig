@@ -1,0 +1,107 @@
+<section class="card">
+    <h2 class="section-title">ชั้นสืบสวนข้อเท็จจริง</h2>
+    {% if edit and subjects %}
+        <form method="post" action="{{ path('case_save') }}" class="grid" data-deadline="fact">
+            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+            <input type="hidden" name="action" value="save_fact">
+            <input type="hidden" name="case_id" value="{{ id }}">
+            {% include 'workflow/deadline.html.twig' with {track:fact, days:((fact.duration_days ?? 0) ?: 30), editableDays:true} %}
+            <div class="wide">
+                <h3>ผลสืบสวนรายบุคคล</h3>
+                {% for s in subjects %}
+                    {% set fs = findings[s.id] ?? {} %}
+                    <div class="subject">
+                        <b>{{ s.label }}</b>
+                        <div class="grid">
+                            <div>
+                                <label>ผลสืบสวน</label>
+                                <select name="finding[{{ s.id }}]">
+                                    <option value="">-- เลือก --</option>
+                                    <option value="no_ground" {{ (fs.finding??'')=='no_ground'?'selected':'' }}>ไม่มีมูล</option>
+                                    <option value="ground" {{ (fs.finding??'')=='ground'?'selected':'' }}>มีมูล</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>กรณีมีมูล</label>
+                                <select name="severity[{{ s.id }}]">
+                                    <option value="">-- เลือก --</option>
+                                    <option {{ (fs.severity??'')=='nonserious'?'selected':'' }} value="nonserious">ไม่ร้ายแรง</option>
+                                    <option {{ (fs.severity??'')=='serious'?'selected':'' }} value="serious">ร้ายแรง</option>
+                                </select>
+                            </div>
+                            <div class="wide">
+                                <label>รายละเอียดผลสืบสวน</label><textarea name="finding_detail[{{ s.id }}]">{{ fs.allegation_detail??'' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="actions wide">
+                <button class="btn green">บันทึกผลสืบสวน</button>
+            </div>
+        </form>
+    {% endif %}
+    {% if fact and edit %}
+        <hr>
+        <h3>คำสั่งคณะกรรมการ</h3>
+        <form method="post" action="{{ path('case_save') }}" class="grid">
+            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+            <input type="hidden" name="action" value="add_order">
+            <input type="hidden" name="case_id" value="{{ id }}">
+            <input type="hidden" name="track_id" value="{{ fact.id }}">
+            <div>
+                <label>รายการ</label>
+                <select name="event_type">
+                    <option value="appoint">แต่งตั้ง</option>
+                    <option value="change_committee">เปลี่ยนแปลงคณะกรรมการ</option>
+                    <option value="amend_order">แก้ไขเพิ่มเติมคำสั่ง</option>
+                </select>
+            </div>
+            <div>
+                <label>วันที่คำสั่ง</label>
+                <input type="date" name="order_date">
+            </div>
+            <div>
+                <label>เลขคำสั่ง</label>
+                <input name="order_number">
+            </div>
+            <div class="wide">
+                <label>รายละเอียด</label>
+                <input name="detail">
+            </div>
+            <div>
+                <button class="btn small">เพิ่มรายการ</button>
+            </div>
+        </form>
+        {% for o in orders %}
+            <div class="subject">{{ o.event_type }} · {{ o.order_number }} · {{ o.order_date }}
+            </div>
+        {% endfor %}
+        <h3>ขยายเวลา</h3>
+        <form method="post" action="{{ path('case_save') }}" class="grid">
+            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+            <input type="hidden" name="action" value="add_extension">
+            <input type="hidden" name="case_id" value="{{ id }}">
+            <input type="hidden" name="track_id" value="{{ fact.id }}">
+            <div>
+                <label>จำนวนวันที่ขอขยาย</label>
+                <input type="number" min="1" name="requested_days">
+            </div>
+            <div>
+                <label>การดำเนินการที่ผ่านมา</label>
+                <input name="completed_work">
+            </div>
+            <div>
+                <label>เหตุผล</label>
+                <input name="reason">
+            </div>
+            <div>
+                <button class="btn small">เพิ่มการขยาย</button>
+            </div>
+        </form>
+        {% for e in extensions %}
+            <div class="subject">ครั้งที่ {{ e.sequence_no }} · {{ e.requested_days }} วัน · ครบกำหนดใหม่ {{ e.new_due_date }}
+            </div>
+        {% endfor %}
+    {% endif %}
+</section>

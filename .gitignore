@@ -16,3 +16,8 @@
 *.bundle
 *.log
 /config.local.php
+/.worktrees/
+/vendor/
+/var/
+/.phpunit.cache/
+/config/reference.php

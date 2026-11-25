@@ -1,0 +1,102 @@
+{% extends 'layout.html.twig' %}
+{% block title %}ผลการสอบสวนรายบุคคล · DISC{% endblock %}
+{% block content %}
+    {% import 'workflow/macros.html.twig' as workflow %}
+    <section class="card">
+        <a href="{{ path('discipline_track',{case_id:track.case_id, type:track.track_type, track_id:track.id}) }}">← {{ track|track_title }}</a>
+        <h1 class="section-title">ผลการสอบสวนวินัยรายบุคคล</h1>
+        {% if app.request.query.has('saved') %}
+            <div class="notice">บันทึกแล้ว
+            </div>
+        {% endif %}
+        {% if not persons %}
+            <p>ยังไม่มีผู้ถูกกล่าวหาในชุดนี้</p>
+        {% endif %}
+        {% for person in persons %}
+            {% set sid = person.id %}
+            <article class="subject">
+                <h2>{{ person.label }}</h2>
+                <p><a href="{{ path('subject_detail', {case_id: caseId, subject_id: sid}) }}">ดูรายละเอียดและประวัติรายบุคคล</a></p>
+                {% if person.ended_at %}
+                    <p>สิ้นสุดรอบนี้แล้ว</p>
+                {% endif %}
+                {% if edit and not person.ended_at %}
+                    <form method="post" action="{{ path('discipline_save') }}" class="grid">
+                        <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+                        <input type="hidden" name="case_id" value="{{ caseId }}">
+                        <input type="hidden" name="track_id" value="{{ track.id }}">
+                        <input type="hidden" name="subject_id" value="{{ sid }}">
+                        <div>
+                            <label>ผลการสอบสวนวินัย
+                            <select name="finding">
+                                {% for key, label in {'':'ยังไม่บันทึก','not_guilty':'ไม่ผิดวินัย','guilty':'ผิดวินัย'} %}
+                                    <option value="{{ key }}" {{ (person.finding??'')==key?'selected':'' }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            </label>
+                        </div>
+                        {% if type == 'discipline_nonserious' %}
+                            <div>
+                                <label class="workflow-checkbox">
+                                <input type="checkbox" name="recommend_serious" value="1" {{ (person.recommend_serious)?'checked':'' }}> คกก. เห็นควรให้สอบสวนอย่างร้ายแรง</label>
+                            </div>
+                        {% endif %}
+                        {% for field, label in constant('App\\Application\\Query\\WorkflowLabels::DISCIPLINE_FIELDS') %}
+                            <div>
+                                <label>{{ label }}<textarea name="{{ field }}">{{ person[field]??'' }}</textarea></label>
+                            </div>
+                        {% endfor %}
+                        <div class="actions wide">
+                            <button class="btn green">บันทึกผลการสอบสวน</button>
+                        </div>
+                    </form>
+                {% else %}
+                    {{ workflow.discipline(person) }}
+                {% endif %}
+                {% if edit and not person.ended_at and (person.allegation_detail) %}
+                    <details>
+                        <summary>รายละเอียดที่บันทึกเดิม</summary>
+                        <p class="workflow-remarks">{{ person.allegation_detail }}</p>
+                    </details>
+                {% endif %}
+                {% if edit and not person.ended_at and type=='discipline_nonserious' and (person.recommend_serious) %}
+                    <details>
+                        <summary>ยืนยันเปลี่ยนเป็นสอบสวนอย่างร้ายแรง</summary>
+                        <form method="post" action="{{ path('case_save') }}" class="grid">
+                            <input type="hidden" name="csrf" value="{{ csrf_token('disc2_form') }}">
+                            <input type="hidden" name="action" value="escalate_discipline">
+                            <input type="hidden" name="case_id" value="{{ caseId }}">
+                            <input type="hidden" name="track_id" value="{{ track.id }}">
+                            <input type="hidden" name="subject_id" value="{{ sid }}">
+                            <div>
+                                {% for target in seriousTracks %}
+                                    <input type="hidden" name="target_revision[{{ target.id }}]" value="{{ target.revision }}">
+                                {% endfor %}
+                                <label>ชุด คกก. ร้ายแรง
+                                <select name="target_track" required>
+                                    <option value="">เลือกชุด คกก.</option>
+                                    {% for target in seriousTracks %}
+                                        <option value="{{ target.id }}">{{ (target|track_title) ~ (target.appointment ? ' · ' ~ target.appointment : '') }}</option>
+                                    {% endfor %}
+                                    <option value="new">เปิดชุดใหม่ตามคำสั่งแต่งตั้ง</option>
+                                </select>
+                                </label>
+                            </div>
+                            <div>
+                                <label>วันที่คำสั่งมีผล
+                                <input type="date" name="effective_date" required></label>
+                            </div>
+                            <div>
+                                <label>เลขที่คำสั่งหรือหนังสืออ้างอิง
+                                <input name="reference" required></label>
+                            </div>
+                            <div class="actions wide">
+                                <button class="btn green">ยืนยันเปลี่ยนเป็นร้ายแรง</button>
+                            </div>
+                        </form>
+                    </details>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </section>
+{% endblock %}
