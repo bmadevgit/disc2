@@ -4,6 +4,9 @@ Repository ของทีมคือ [bmadevgit/disc2 บน GitHub](https://g
 
 - [คู่มือ PDF พร้อมแผนภาพ](docs/DISC2-Git-Codex.pdf)
 - [คู่มือผู้ดูแล GitHub และออกรุ่น](MAINTAINERS.md)
+- [สรุปการปรับโครงสร้าง Symfony และผลการตรวจสอบรุ่นทดสอบ](REWRITE_SUMMARY.md)
+
+DISC2 ใช้ Symfony 7.4 LTS โดยมี `public/index.php` เป็นจุดรับคำขอ HTTP ส่วน `/index.php`, `/case.php` และ `/save_case.php` เป็น URL เดิมที่ Symfony จัดการผ่าน `config/routes.yaml`
 
 ## ภาพรวมการทำงาน
 
@@ -109,7 +112,7 @@ docker compose up -d app
 
 โหมด Docker dev ใช้ bind mount จากโฟลเดอร์ที่สั่ง Compose ไปที่ `/app` โดยตรง ดังนั้นการแก้ไฟล์ใน WSL จะมีผลใน container ทันที ส่วน `/app/vendor` ใช้ named volume แยก เมื่อเปลี่ยน branch หรือ `composer.lock` ให้รัน `docker compose run --rm app composer install` อีกครั้ง
 
-เว็บที่ `http://127.0.0.1:8760/` ใช้ `public/index.php` เป็น front controller ตรวจเส้นทางที่มีด้วย `docker compose exec app php bin/console debug:router` พอร์ตเปิดบน `127.0.0.1` เท่านั้น ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
+Docker เลือกพอร์ตบน `127.0.0.1` อัตโนมัติเมื่อสร้างคอนเทนเนอร์ ใช้ `docker compose port app 8760` เพื่อดูที่อยู่และพอร์ต แล้วเปิดที่อยู่นั้นด้วย `http://` เว็บใช้ `public/index.php` เป็น front controller ตรวจเส้นทางที่มีด้วย `docker compose exec app php bin/console debug:router` ใช้เฉพาะข้อมูลสมมติ ฐานและรหัสผ่านอยู่ใน `runtime/` บนเครื่อง `.gitignore` และ `.dockerignore` กันโฟลเดอร์นี้ออกจาก Git และบริบทการสร้างอิมเมจตามลำดับ
 
 หยุดเว็บจากรากโครงการด้วยคำสั่งด้านล่าง ฐานและบัญชีสมมติยังอยู่สำหรับการเปิดเว็บครั้งถัดไป
 
@@ -118,6 +121,8 @@ docker compose down
 ```
 
 ### IIS Server-A ที่ /exam/disc2
+
+สถานะตามสรุปการปรับโครงสร้างคือ **HOLD** สำหรับ production เปิดรับการเขียนได้เมื่อผ่านการทดสอบบน IIS/FastCGI staging จริง การตรวจสิทธิ์ NTFS และ application pool การทดสอบกับ BMA endpoint ที่ได้รับอนุมัติ การซ้อมย้อนรุ่นด้วยแพ็กเกจ Server-A รุ่นก่อน และการลงนามรับรองตาม [รายการตรวจก่อนสลับรุ่น](docs/rewrite/cutover-checklist.md)
 
 ผู้ดูแลสร้าง ZIP จากแท็กที่ลงนาม ตรวจ SHA-256 และซ้อม rollback บน IIS staging ก่อนเปิดรับการเขียน รุ่น production ต้องเก็บข้อมูลและ audit ที่บันทึกหลัง cutover ทั้งหมด [คู่มือออกรุ่นและย้อนรุ่นบน IIS](docs/IIS-DEPLOYMENT.md)
 
@@ -178,6 +183,6 @@ git remote get-url origin
 
 ### ไฟล์อ้างอิงของ DISC2
 
-- `AGENTS.md` บริบทให้ Codex · `index.php` หน้ารายการ · `case.php` หน้าสำนวน
-- `src/Domain/Workflow/` และ `public/assets/workflow.js` กติกาคำนวณวัน · `migrations/` ไฟล์ปรับโครงสร้างฐาน
+- `AGENTS.md` แนวทางทำงานในโครงการ · `config/routes.yaml` ตารางเส้นทาง · `src/Controller/` ตัวควบคุมคำขอ · `templates/` แม่แบบ Twig
+- `src/Application/Command/` คำสั่งบันทึกสำนวนและ workflow · `src/Domain/Workflow/` กติกาคำนวณวัน · `public/assets/workflow.js` พฤติกรรมบนหน้าเว็บ · `migrations/` ไฟล์ปรับโครงสร้างฐาน
 - ใช้ข้อมูลสมมติในเครื่องและภาพทดสอบ เก็บฐานสำนวนจริงและค่าลับไว้ในพื้นที่ของผู้ดูแลนอก Git

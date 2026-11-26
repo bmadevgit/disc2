@@ -12,11 +12,11 @@ services:
       DISC2_DEV: "1"
       DISC2_DOCKER: "1"
     ports:
-      - "127.0.0.1:8760:8760"
+      - "127.0.0.1::8760"
     volumes:
       - .:/app
       - vendor:/app/vendor
-    command: [php, -S, "0.0.0.0:8760", -t, public, tools/dev-router.php]
+    command: [ php, -S, "0.0.0.0:8760", -t, public, tools/dev-router.php ]
 
 volumes:
   vendor:

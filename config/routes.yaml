@@ -23,6 +23,7 @@ when@test:
 
 case_index: { path: /index.php, controller: App\Controller\CaseListController, methods: [GET] }
 case_home: { path: /, controller: App\Controller\CaseListController, methods: [GET] }
+case_create: { path: /cases/new, controller: App\Controller\CaseListController::create, methods: [GET] }
 case_detail: { path: /case.php, controller: App\Controller\CaseViewController, methods: [GET] }
 case_detail_clean: { path: /case, controller: App\Controller\CaseViewController, methods: [GET] }
 dashboard: { path: /admin.php, controller: App\Controller\AdminDashboardController, methods: [GET] }
@@ -35,6 +36,7 @@ discipline_results: { path: /discipline_results.php, controller: App\Controller\
 discipline_results_clean: { path: /discipline_results, controller: App\Controller\DisciplineResultsController, methods: [GET] }
 access_roles: { path: /roles.php, controller: App\Controller\AdminDashboardController::roles, methods: [GET] }
 access_roles_clean: { path: /roles, controller: App\Controller\AdminDashboardController::roles, methods: [GET] }
+users_index: { path: /users, controller: App\Controller\AdminDashboardController::users, methods: [GET] }
 index_alias: { path: /i.php, controller: App\Controller\ReadAliasController::index, methods: [GET] }
 profile_alias: { path: /profile.php, controller: App\Controller\ReadAliasController::index, methods: [GET] }
 case_edit_alias: { path: /edit.php, controller: App\Controller\ReadAliasController::detail, methods: [GET] }
