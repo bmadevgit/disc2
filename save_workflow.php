@@ -23,6 +23,18 @@ if ($action === 'save_track' || $action === 'convert_serious_deadline') {
     trackRedirect($track,'&saved=1');
 }
 
+if ($action === 'open_discipline_track') {
+    $type = (string)($_POST['track_type'] ?? '');
+    if (!in_array($type,['discipline_nonserious','discipline_serious'],true)) workflowError('ประเภทการสอบสวนไม่ถูกต้อง');
+    beginWorkflowWrite($pdo);
+    $pdo->prepare('INSERT OR IGNORE INTO uat_tracks(case_id,track_type,duration_days) VALUES(?,?,?)')
+        ->execute([$caseId,$type,$type === 'discipline_serious' ? 120 : 60]);
+    $pdo->prepare("UPDATE uat_case_meta SET stage='discipline' WHERE case_id=?")->execute([$caseId]);
+    audit($pdo,$caseId,'open_discipline_track',$type);
+    $pdo->commit();
+    go($caseId,3);
+}
+
 if ($action === 'assign_discipline') {
     beginWorkflowWrite($pdo);
     $subjects = workflowRows($pdo, "SELECT s.id FROM uat_subjects s
@@ -126,6 +138,31 @@ if ($action === 'save_decision') {
         ->execute([$track['id'],$caseId,$sid,$route,workflowDate($_POST['report_kk_date']??''),$resolutionDate,$resolution,
             clean($_POST['commander_decision']??''),$order,$orderDate,workflowDate($_POST['finished_date']??'')]);
     audit($pdo,$caseId,$action,$sid.':'.$track['id']);
+    $pdo->commit();
+    go($caseId,4);
+}
+
+if ($action === 'save_track_decision') {
+    $trackId = (int)($_POST['track_id'] ?? 0);
+    beginWorkflowWrite($pdo);
+    $track = workflowRows($pdo,"SELECT * FROM uat_tracks WHERE id=? AND case_id=? AND track_type<>'fact'",[$trackId,$caseId])[0] ?? [];
+    if (!$track) workflowError('ไม่พบกระบวนการสอบสวน',404);
+    $route = $track['track_type'] === 'discipline_serious' ? 'serious' : 'nonserious';
+    $resolution = clean($_POST['kk_resolution'] ?? '');
+    $resolutionDate = workflowDate($_POST['kk_resolution_date'] ?? '');
+    $order = clean($_POST['order_number'] ?? '');
+    $orderDate = workflowDate($_POST['order_date'] ?? '');
+    if ($route === 'serious' && ($order !== '' || $orderDate !== '') && ($resolution === '' || $resolutionDate === '')) {
+        workflowError('กรณีร้ายแรงต้องบันทึกวันที่และมติ ก.ก. ก่อนออกคำสั่ง');
+    }
+    $pdo->prepare('INSERT INTO uat_track_decisions(case_id,track_id,route_type,report_kk_date,kk_resolution_date,kk_resolution,
+        commander_decision,order_number,order_date,finished_date,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+        ON CONFLICT(track_id) DO UPDATE SET report_kk_date=excluded.report_kk_date,kk_resolution_date=excluded.kk_resolution_date,
+        kk_resolution=excluded.kk_resolution,commander_decision=excluded.commander_decision,order_number=excluded.order_number,
+        order_date=excluded.order_date,finished_date=excluded.finished_date,updated_at=CURRENT_TIMESTAMP')
+        ->execute([$caseId,$track['id'],$route,workflowDate($_POST['report_kk_date']??''),$resolutionDate,$resolution,
+            clean($_POST['commander_decision']??''),$order,$orderDate,workflowDate($_POST['finished_date']??'')]);
+    audit($pdo,$caseId,$action,(string)$track['id']);
     $pdo->commit();
     go($caseId,4);
 }

@@ -84,7 +84,7 @@ asort($options['type'],SORT_NATURAL);
             <td><?=h($case['case_type'] ?: 'ยังไม่ระบุ')?></td>
             <td><div class="workflow-badges"><span class="pill workflow-stage"><?=h(stageLabels()[$case['stage']] ?? 'รับเรื่อง')?></span>
                 <?php foreach ($case['counts'] as $finding=>$count) showFinding($finding,' '.$count.' ราย'); ?>
-                <?php if (!$case['subject_count']): ?><span class="pill workflow-neutral">ต้องเพิ่มรายบุคคล</span><?php endif ?>
+                <?php if (!$case['subject_count']): ?><span class="pill workflow-neutral">ยังไม่ระบุรายบุคคล</span><?php endif ?>
             </div></td>
             <td><?php if ($case['subject_count']): ?><a href="<?=appUrl('subject.php?case_id='.(int)$case['id'])?>"><?=$case['subject_count']?> ราย</a><?php else: ?>–<?php endif ?></td>
             <td><?=h(substr((string)$case['created_at'],0,16))?></td>

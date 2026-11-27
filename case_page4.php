@@ -20,6 +20,14 @@ ORDER BY s.sequence_no, s.id
 SQL);
 $decisionQuery->execute([$id]);
 $decisionRows = $decisionQuery->fetchAll();
+$trackDecisionRows = [];
+if (!$subjects) {
+    $trackDecisionRows = workflowRows($pdo, "SELECT t.id AS current_track_id, t.track_type, t.set_no, d.report_kk_date, d.kk_resolution_date, d.kk_resolution, d.commander_decision, d.order_number, d.order_date, d.finished_date
+        FROM uat_tracks t
+        LEFT JOIN uat_track_decisions d ON d.track_id=t.id
+        WHERE t.case_id=? AND t.track_type<>'fact'
+        ORDER BY t.track_type, t.set_no", [$id]);
+}
 ?>
 <style>
 .decision-guide{background:#eef5ff;border:1px solid #c9dcff;border-radius:16px;padding:20px 24px;margin-bottom:22px;color:#243b63}
@@ -50,12 +58,88 @@ $decisionRows = $decisionQuery->fetchAll();
         </ol>
     </div>
 
-    <?php if (!$decisionRows): ?>
+    <?php if (!$decisionRows && !$trackDecisionRows): ?>
         <div class="notice warn">
-            ยังไม่มีผู้ถูกกล่าวหาที่เข้าสู่ชั้นสอบสวน หรือยังไม่ได้เลือกประเภทการสอบสวนในขั้นตอน 3
+            <?= $subjects ? 'ยังไม่มีผู้ถูกกล่าวหาที่เข้าสู่ชั้นสอบสวน หรือยังไม่ได้เลือกประเภทการสอบสวนในขั้นตอน 3' : 'ยังไม่ได้เลือกประเภทการสอบสวนในขั้นตอน 3' ?>
             <a href="<?=appUrl('case.php?id='.$id.'&page=3')?>">ไปยังขั้นตอน 3</a>
         </div>
     <?php endif; ?>
+
+    <?php foreach ($trackDecisionRows as $row):
+        $isSerious = $row['track_type'] === 'discipline_serious';
+        $trackLabel = trackTitle($row);
+    ?>
+        <div class="subject decision-card <?=$isSerious?'serious':'nonserious'?>">
+            <h3>
+                <?=h($trackLabel)?>
+                <span class="decision-type"><?=$isSerious?'วินัยอย่างร้ายแรง':'วินัยอย่างไม่ร้ายแรง'?></span>
+            </h3>
+
+            <?php if ($edit): ?>
+                <form method="post" action="<?=appUrl('save_case.php')?>" class="grid decision-form">
+                    <input type="hidden" name="csrf" value="<?=csrfToken()?>">
+                    <input type="hidden" name="action" value="save_track_decision">
+                    <input type="hidden" name="case_id" value="<?=$id?>">
+                    <input type="hidden" name="track_id" value="<?=(int)$row['current_track_id']?>">
+
+                    <div>
+                        <label>รายงาน ก.ก. เมื่อวันที่</label>
+                        <input type="date" name="report_kk_date" value="<?=h($row['report_kk_date']??'')?>">
+                        <small class="field-help">วันที่ส่งหรือรายงานเรื่องต่อ ก.ก. ตามหลักฐานในสำนวน</small>
+                    </div>
+
+                    <?php if ($isSerious): ?>
+                        <div>
+                            <label>วันที่มีมติ ก.ก. <span class="required-mark">*</span></label>
+                            <input type="date" name="kk_resolution_date" value="<?=h($row['kk_resolution_date']??'')?>">
+                            <small class="field-help">วันที่ ก.ก. มีมติเกี่ยวกับผลการสอบสวนหรือการลงโทษ</small>
+                        </div>
+                        <div class="wide">
+                            <label>มติ ก.ก. <span class="required-mark">*</span></label>
+                            <textarea name="kk_resolution" placeholder="สรุปสาระสำคัญของมติ ก.ก. ให้ครบถ้วน"><?=h($row['kk_resolution']??'')?></textarea>
+                            <small class="field-help">ต้องบันทึกมติ ก.ก. ก่อนหรือพร้อมกับการบันทึกคำสั่งในกรณีร้ายแรง</small>
+                        </div>
+                    <?php endif; ?>
+
+                    <div>
+                        <label>ผู้บังคับบัญชาพิจารณา/สั่งลงโทษ <span class="required-mark">*</span></label>
+                        <select name="commander_decision" required>
+                            <option value="">-- เลือกผลการพิจารณา --</option>
+                            <?php foreach (['ยุติเรื่อง','ไม่อาจดำเนินการทางวินัย','งดโทษ','ภาคทัณฑ์','ตัดเงินเดือน','ลดเงินเดือน','ปลดออก','ไล่ออก'] as $value): ?>
+                                <option value="<?=h($value)?>" <?=($row['commander_decision']??'')===$value?'selected':''?>><?=h($value)?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="field-help">เลือกผลสุดท้ายตามคำสั่งของผู้บังคับบัญชา</small>
+                    </div>
+
+                    <div>
+                        <label>เลขที่คำสั่ง</label>
+                        <input name="order_number" value="<?=h($row['order_number']??'')?>" placeholder="เช่น กท 0401/123">
+                        <small class="field-help">กรอกเลขที่คำสั่งเต็มตามเอกสาร ไม่ควรกรอกเฉพาะเลขลำดับ</small>
+                    </div>
+
+                    <div>
+                        <label>วันที่คำสั่ง</label>
+                        <input type="date" name="order_date" value="<?=h($row['order_date']??'')?>">
+                        <small class="field-help">วันที่ออกคำสั่งของผู้มีอำนาจ</small>
+                    </div>
+
+                    <div>
+                        <label>เรื่องเสร็จเมื่อวันที่</label>
+                        <input type="date" name="finished_date" value="<?=h($row['finished_date']??'')?>">
+                        <small class="field-help">วันที่ดำเนินการตามขั้นตอนและจัดเก็บสำนวนเสร็จเรียบร้อย</small>
+                    </div>
+
+                    <div class="actions wide">
+                        <button class="btn green">บันทึกคำสั่ง/รายงาน ก.ก.</button>
+                    </div>
+                </form>
+            <?php else: ?>
+                <p>ผลการพิจารณา <?=h(($row['commander_decision']??'') ?: 'ยังไม่บันทึก')?></p>
+                <p>เลขที่คำสั่ง <?=h(($row['order_number']??'') ?: 'ยังไม่บันทึก')?></p>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
 
     <?php foreach ($decisionRows as $index => $row):
         $isSerious = $row['track_type'] === 'discipline_serious';
